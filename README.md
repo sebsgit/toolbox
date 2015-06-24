@@ -5,4 +5,5 @@ dpstring - string and stringlist 'classes' written in C, I prefer this over plai
 		   no additional libraries required  
 thpool	 - simple thread pool implementation, with support of multi-parameter functions  
 		   dyncall library required to compile and run  
+clc      - ciphering utilities written in C (AES, md5, sha-1)  
   
