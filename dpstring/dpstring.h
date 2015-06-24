@@ -99,6 +99,11 @@ extern void dpstring_replacedpi(dpstring_t * str, const dpstring_t * x, const dp
 extern void dpstring_replacei(dpstring_t * str, const size_t a, const size_t b, const dpstring_t * y);
 
 extern void dpstring_boundc(const dpstring_t * str, const char a, const char b, const size_t start, dpstring_t * out);
+/*
+ * removes white space characters from beginning and end of string
+ * whitespace characters include: '\t', '\n', '\v', '\f', '\r', and ' '
+ * */
+extern void dpstring_trim(dpstring_t * str);
 
 /*
  * convert to plain c string pointer

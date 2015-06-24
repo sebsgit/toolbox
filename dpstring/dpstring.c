@@ -314,3 +314,24 @@ void dpstring_boundc(const dpstring_t * str, const char a, const char b, const s
         dpstring_copys(out,buff+posa+1,posb-posa-1);
     }
 }
+
+static int is_space_(char c){
+	return c==' ' || c=='\n' || c=='\t' || c=='\r' || c=='\v' || c=='\f';
+}
+
+void dpstring_trim(dpstring_t * str){
+	dpstring_t result;
+	const char * buff = STR_SRC(str);
+	uint64_t pos=0;
+	uint64_t end_pos=str->len-1;
+	for ( ; pos < str->len ; ++pos){
+		if (!is_space_(buff[pos]))
+			break;
+	}
+	for( ; end_pos >= 0 ; --end_pos){
+		if (!is_space_(buff[end_pos]))
+			break;
+	}
+	dpstring_inits(&result,buff+pos,end_pos-pos+1);
+	dpstring_take(str,&result);
+}

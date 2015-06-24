@@ -49,6 +49,9 @@ static void test_string(){
 	dpstring_copy(&string,&longstring);
 	assert( dpstring_length(&string) == dpstring_length(&longstring) );
 	assert( strncmp(dpstring_toc(&string), dpstring_toc(&longstring), dpstring_length(&string)) == 0 );
+	dpstring_copys(&string,"  \t lots\t of\nwhitespace\r\n ",26);
+	dpstring_trim(&string);
+	assert( strncmp(dpstring_toc(&string),"lots\t of\nwhitespace",19) == 0 );
 	
 	dpstring_cleanup_fast(&string2);
 	dpstring_cleanup(&string);
@@ -79,6 +82,15 @@ static void test_stringlist(){
 	assert( strncmp("kota",dpstring_toc(&tmp),3) == 0 );
 	assert( dplist_next(&it) == 0 );
 	assert( dplist_is_valid(&it) == 0 );
+	
+	dplist_cleanup(&list);
+	dpstring_copys(&tmp,"ola;tez;ma;kota",15);
+	dplist_split(&tmp,&list,";",1);
+	assert( dplist_length(&list) == 4 );
+	
+	dplist_cleanup(&list);
+	dplist_split(&tmp,&list,";tez;",5);
+	assert( dplist_length(&list) == 2 );
 	
 	dplist_cleanup(&list);
 	dpstring_cleanup_fast(&tmp);

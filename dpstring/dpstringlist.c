@@ -221,6 +221,20 @@ void dplist_replace_alls(dpstringlist_t * list, const char * x, const size_t len
 	}
 }
 
+void dplist_split(const dpstring_t * str, dpstringlist_t * out, const char * sep, const size_t seplen){
+	const char * strbuff = dpstring_toc(str);
+	int read_start=0;
+	int pos = dpstring_locates(str,0,sep,seplen);
+	while (pos != -1){
+		dplist_appends(out,strbuff+read_start,pos-read_start);
+		read_start = pos+seplen;
+		pos = dpstring_locates(str,read_start,sep,seplen);
+	}
+	if (read_start < str->len){
+		dplist_appends(out,strbuff+read_start,str->len-read_start);
+	}
+}
+
 void dplist_join(const dpstringlist_t * list, dpstring_t * out, const char * sep, const size_t seplen){
 	dpstring_t result;
 	list_data_ * node = list->d;

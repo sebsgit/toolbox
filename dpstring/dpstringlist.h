@@ -75,6 +75,7 @@ extern void dplist_foreach(const dpstringlist_t * list, void (*func)(const dpstr
 extern int dplist_containsdp(const dpstringlist_t * list, const dpstring_t * str);
 extern int dplist_containss(const dpstringlist_t * list, const char * str, const size_t len);
 
+extern void dplist_split(const dpstring_t * str, dpstringlist_t * out, const char * sep, const size_t seplen);
 extern void dplist_join(const dpstringlist_t * list, dpstring_t * out, const char * sep, const size_t seplen);
 
 extern void dplist_print(const dpstringlist_t * list);
