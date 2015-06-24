@@ -3,6 +3,7 @@
 #include <string.h>
 #include "dpstring.h"
 #include "dpstringlist.h"
+#include "dpfileio.h"
 
 static void test_string(){
 	dpstring_t string;
@@ -96,11 +97,56 @@ static void test_stringlist(){
 	dpstring_cleanup_fast(&tmp);
 }
 
+static void test_fileio(){
+    const char * path = "test.txt";
+    FILE * fp = fopen(path,"w");
+    if (fp){
+        dpstring_t tmp;
+        dpstringlist_t list;
+        dpstringlist_iterator_t it;
+        fwrite("test\n",1,5,fp);
+        fwrite("line2",1,5,fp);
+        fclose(fp);
+
+        dpstring_init(&tmp);
+        dplist_init(&list);
+        assert( dpio_load_file(path,&tmp) );
+        assert( strncmp("test\nline2", dpstring_toc(&tmp), 10) == 0 );
+        assert( dpio_split_file(path,"\n",1,&list) );
+        assert( dplist_length(&list) == 2 );
+        dplist_beginv(&list,&it,&tmp);
+        assert( strncmp("test",dpstring_toc(&tmp),4) == 0 );
+        assert( dplist_nextv(&it,&tmp) );
+        assert( strncmp("line2",dpstring_toc(&tmp),5) == 0 );
+
+        dpstring_copys(&tmp,"to write",8);
+        dpio_writes(path,&tmp);
+        dpstring_cleanup(&tmp);
+        assert( dpstring_is_empty(&tmp) );
+        dpio_load_file(path,&tmp);
+        assert( strncmp("to write", dpstring_toc(&tmp), 8) == 0 );
+        dpstring_copys(&tmp,"\nsecond",7);
+        dpio_appends(path,&tmp);
+        dpstring_cleanup(&tmp);
+        assert( dpstring_is_empty(&tmp) );
+        dpio_load_file(path,&tmp);
+        assert( strncmp("to write\nsecond", dpstring_toc(&tmp), 15) == 0 );
+
+        dpstring_cleanup_fast(&tmp);
+        dplist_cleanup(&list);
+        remove(path);
+    } else{
+        printf("can't open tmp file!\n");
+        exit(0);
+    }
+}
+
 int main(int argc, char ** argv){
 	size_t n=1000;
 	while (--n != 0){
 		test_string();
 		test_stringlist();
+        test_fileio();
 	}
 	return 0;
 }

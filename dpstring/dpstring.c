@@ -103,6 +103,10 @@ void dpstring_cleanup_fast(dpstring_t * str){
 	}
 }
 
+void dpstring_resize(dpstring_t *str, const size_t size){
+    expand_(str,size);
+}
+
 int dpstring_is_empty(const dpstring_t * str){
     return str->len==0;
 }
@@ -171,6 +175,10 @@ const char dpstring_getc(const dpstring_t * str, const size_t pos){
 
 const char * dpstring_toc(const dpstring_t * str){
 	return STR_SRC(str);
+}
+
+char * dpstring_strbuf(dpstring_t *str){
+    return STR_SRC(str);
 }
 
 static int locate_internal_(const dpstring_t * str, const size_t pos, const char * buff, const size_t len){

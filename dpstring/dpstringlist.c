@@ -118,7 +118,7 @@ size_t dplist_length(const dpstringlist_t * list){
 	return n;
 }
 
-void dplist_foreach(const dpstringlist_t * begin, void (*func)(const dpstring_t *) ){
+void dplist_foreach(const dpstringlist_t * begin, void (*func)(dpstring_t *) ){
 	list_data_ * p = begin->d;
 	while (p){
 		func(&p->value);

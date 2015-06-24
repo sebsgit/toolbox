@@ -106,11 +106,21 @@ extern void dpstring_boundc(const dpstring_t * str, const char a, const char b, 
 extern void dpstring_trim(dpstring_t * str);
 
 /*
- * convert to plain c string pointer
+ * resize "str" to "size" length
+ * content of the string is undefined
+ * */
+extern void dpstring_resize(dpstring_t * str, const size_t size);
+
+/*
+ * convert to plain c const string pointer
  * this function does not allocate any resources
  * you don't have to free the returned pointer
  * */
 extern const char * dpstring_toc(const dpstring_t * str);
+/*
+ * same as "_toc" but allows to modify the output buffer
+ * */
+extern char * dpstring_strbuf(dpstring_t * str);
 
 #ifdef __cplusplus
 }
