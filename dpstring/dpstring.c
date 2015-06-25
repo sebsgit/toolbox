@@ -173,6 +173,14 @@ const char dpstring_getc(const dpstring_t * str, const size_t pos){
 	return STR_SRC(str)[pos];
 }
 
+const int dpstring_toi(const dpstring_t *str){
+    return strtol(STR_SRC(str),0,10);
+}
+
+const double dpstring_tod(const dpstring_t *str){
+    return strtod(STR_SRC(str),0);
+}
+
 const char * dpstring_toc(const dpstring_t * str){
 	return STR_SRC(str);
 }
@@ -216,6 +224,21 @@ int dpstring_locatec(const dpstring_t * str, const size_t pos, const char c){
 			return i;
 	}
 	return -1;
+}
+
+
+int dpstring_starts_withc(const dpstring_t *str, const char c){
+    if (str->len > 0 && STR_SRC(str)[0] == c){
+        return 1;
+    }
+    return 0;
+}
+
+int dpstring_ends_withc(const dpstring_t *str, const char c){
+    if (str->len > 0 && STR_SRC(str)[str->len-1] == c){
+        return 1;
+    }
+    return 0;
 }
 
 void dpstring_replacecc(dpstring_t * str, const char x, const char y){
@@ -328,18 +351,20 @@ static int is_space_(char c){
 }
 
 void dpstring_trim(dpstring_t * str){
-	dpstring_t result;
-	const char * buff = STR_SRC(str);
-	uint64_t pos=0;
-	uint64_t end_pos=str->len-1;
-	for ( ; pos < str->len ; ++pos){
-		if (!is_space_(buff[pos]))
-			break;
-	}
-	for( ; end_pos >= 0 ; --end_pos){
-		if (!is_space_(buff[end_pos]))
-			break;
-	}
-	dpstring_inits(&result,buff+pos,end_pos-pos+1);
-	dpstring_take(str,&result);
+    if (str->len > 0){
+        dpstring_t result;
+        const char * buff = STR_SRC(str);
+        uint64_t pos=0;
+        uint64_t end_pos=str->len-1;
+        for ( ; pos < str->len ; ++pos){
+            if (!is_space_(buff[pos]))
+                break;
+        }
+        for( ; end_pos >= 0 ; --end_pos){
+            if (!is_space_(buff[end_pos]))
+                break;
+        }
+        dpstring_inits(&result,buff+pos,end_pos-pos+1);
+        dpstring_take(str,&result);
+    }
 }

@@ -71,6 +71,7 @@ extern void dplist_replace_alldp(dpstringlist_t * list, const dpstring_t * x, co
 extern void dplist_replace_alldps(dpstringlist_t * list, const dpstring_t * x, const char * y, const size_t len);
 extern void dplist_replace_alls(dpstringlist_t * list, const char * x, const size_t lenx, const char * y, const size_t leny);
 
+extern void dplist_at(const dpstringlist_t * list, const size_t i, dpstring_t * value);
 extern void dplist_foreach(const dpstringlist_t * list, void (*func)(dpstring_t *) );
 extern int dplist_containsdp(const dpstringlist_t * list, const dpstring_t * str);
 extern int dplist_containss(const dpstringlist_t * list, const char * str, const size_t len);

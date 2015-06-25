@@ -88,6 +88,9 @@ extern void dpstring_appends(dpstring_t * str, const char * buff, const size_t l
 extern int dpstring_cmp(const dpstring_t * str1, const dpstring_t * str2);
 extern int dpstring_cmps(const dpstring_t * str1, const char * str2, const size_t len);
 
+extern int dpstring_starts_withc(const dpstring_t * str, const char c);
+extern int dpstring_ends_withc(const dpstring_t * str, const char c);
+
 extern int dpstring_locatec(const dpstring_t * str, const size_t pos, const char c);
 extern int dpstring_locates(const dpstring_t * str, const size_t pos, const char * buff, const size_t len);
 extern int dpstring_locatedp(const dpstring_t * str, const size_t pos, const dpstring_t * buff);
@@ -111,6 +114,8 @@ extern void dpstring_trim(dpstring_t * str);
  * */
 extern void dpstring_resize(dpstring_t * str, const size_t size);
 
+extern const int dpstring_toi(const dpstring_t * str);
+extern const double dpstring_tod(const dpstring_t * str);
 /*
  * convert to plain c const string pointer
  * this function does not allocate any resources

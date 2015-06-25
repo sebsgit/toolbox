@@ -118,6 +118,16 @@ size_t dplist_length(const dpstringlist_t * list){
 	return n;
 }
 
+void dplist_at(const dpstringlist_t *list, const size_t i, dpstring_t *value){
+    list_data_ * p = list->d;
+    size_t n=0;
+    while (n<i){
+        p = p->next;
+        ++n;
+    }
+    dpstring_copy(value,&p->value);
+}
+
 void dplist_foreach(const dpstringlist_t * begin, void (*func)(dpstring_t *) ){
 	list_data_ * p = begin->d;
 	while (p){
