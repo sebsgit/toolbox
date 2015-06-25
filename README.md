@@ -8,4 +8,5 @@ thpool	 - simple thread pool implementation, with support of multi-parameter fun
 clc      - ciphering utilities written in C (AES, md5, sha-1)  
 math     - C++ code written while solving problems on projecteuler.net (primes, fast modulo, big numbers etc.)  
 inips	 - .ini file loader in C  
+dploader - shared library loader for linux and windows, written in C  
   
