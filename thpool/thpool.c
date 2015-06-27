@@ -340,6 +340,11 @@ static void push_params_(thcallvm_t * vm){
 		break;
 		}
 	}
+	pthread_mutex_lock(&thglobal_mutex);
+	if (thglobal_stack_autoreset_){
+		thglobal_stack_ptr_ = 0;
+	}
+	pthread_mutex_unlock(&thglobal_mutex);
 }
 
 void thpool_stack_reset(){
