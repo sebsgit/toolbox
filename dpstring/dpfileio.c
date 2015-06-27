@@ -10,7 +10,10 @@ int dpio_load_file(const char *path, dpstring_t *out){
         if (size > 0){
             fseek(fp, 0, SEEK_SET);
             dpstring_resize(out,size);
-            fread(dpstring_strbuf(out),1,size,fp);
+            if( size != fread(dpstring_strbuf(out),1,size,fp) ){
+				fclose(fp);
+				return 0;
+			}
         }
         fclose(fp);
         return 1;
