@@ -219,6 +219,7 @@ static void sieve_init_priv_(prime_sieve_t * sieve, const lint_t max_num){
 		++n;
 		bits = get_index(n);
 	}
+	sieve->max_number = max_num;
 	
 	printf("%lu kb needed for prime sieve up to %lu\n",bits/(8*1024),max_num);
 	
