@@ -89,7 +89,7 @@ if [ $? -ne 0 ]; then
 fi
 
 ## some tools report version info on stderr...
-for opt in -V --version -v -version; do
+for opt in --version -v -V -version; do
 	tmp_output=`$cmd_path $opt 2>&1`
 	if [ $? -eq 0 ]; then
 		ver_swtch=$opt
