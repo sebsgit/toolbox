@@ -88,8 +88,9 @@ if [ $? -ne 0 ]; then
     exit 127;
 fi
 
-for opt in -V --version -v; do
-	tmp_output=`$cmd_path $opt 2>/dev/null`
+## some tools report version info on stderr...
+for opt in -V --version -v -version; do
+	tmp_output=`$cmd_path $opt 2>&1`
 	if [ $? -eq 0 ]; then
 		ver_swtch=$opt
 		break;
@@ -99,7 +100,7 @@ if [[ $ver_swtch == "" ]]; then
 	echo "$cmd_path does not support version switch\n"
 	exit 1
 fi
-rx="^([0-9]+)[\.]([0-9]+)([\.]([0-9])+)?"
+rx="([0-9]+)[\.]([0-9]+)([\.]([0-9])+)?"
 for tmp in $tmp_output; do
 	if [[ $tmp =~ $rx ]]; then
 		ver_found=${BASH_REMATCH[0]}
