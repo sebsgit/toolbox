@@ -14,3 +14,6 @@ implementation notes:
 	-> check if any of the standard 'version' switches [-v, --version, -V etc.] can be used
 	-> if no, return some error code
 	-> if yes, parse the output and search for M.m.p version string
+
+todo:
+	-> fix checking commands that does not return (like dash, sh, ...)
