@@ -14,7 +14,7 @@
 EMAIL="s.baginski@mail.com"
 AUTHOR="Sebastian Baginski ($EMAIL)"
 COPYRIGHT="Copyright (C) 2015 Sebastian Baginski\nThis is free software; see the source for copying conditions. There is NO \nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
-VERSION=0.0.1
+VERSION=0.9
 
 print_version(){
 	echo "version (ver. $VERSION)";
@@ -43,13 +43,13 @@ print_detailed_help(){
     echo -e "\nExample usage:";
     echo -e "  version gcc\t\tThis will print the installed gcc version to stdout.\n\t\t\tIf gcc is not found, then nothing is printed and\n\t\t\tscript exits with non-zero value."
     echo -e "  version -gt 4.5 gcc\tIf gcc version installed is greater than 4.5.0 script\n\t\t\tprints 1, otherwise 0."
-    echo -e "  version -M -lt 3 awk\tIf make major version installed is less than 3 script\n\t\t\tprints 1, otherwise 0"
+    echo -e "  version -M -lt 3 awk\tIf awk major version installed is less than 3 script\n\t\t\tprints 1, otherwise 0"
     echo -e "\nKnown bugs:"
     echo -e "  If the command being checked does not recognize the standard 'version'";
     echo -e "  switches you may experience weird behaviour, as the script tries to call"
     echo -e "  the command with the --version type of switches. For example some programs"
     echo -e "  may want to try to open the file named '-V'. Such bugs should be reported to"
-    echo -e "  and get fixed by their authors."
+    echo -e "  and get fixed by the program's authors."
     echo "";
     print_version;
 }
