@@ -97,7 +97,7 @@ for opt in -V --version -v -version; do
 	fi
 done
 if [[ $ver_swtch == "" ]]; then
-	echo "$cmd_path does not support version switch\n"
+	echo "$cmd_path does not support version switch"
 	exit 1
 fi
 rx="([0-9]+)[\.]([0-9]+)([\.]([0-9])+)?"
