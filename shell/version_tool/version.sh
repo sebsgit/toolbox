@@ -14,7 +14,7 @@
 EMAIL="s.baginski@mail.com"
 AUTHOR="Sebastian Baginski ($EMAIL)"
 COPYRIGHT="Copyright (C) 2015 Sebastian Baginski\nThis is free software; see the source for copying conditions. There is NO \nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
-VERSION=0.9
+VERSION=1.0
 
 print_version(){
 	echo "version (ver. $VERSION)";
@@ -50,6 +50,8 @@ print_detailed_help(){
     echo -e "  the command with the --version type of switches. For example some programs"
     echo -e "  may want to try to open the file named '-V'. Such bugs should be reported to"
     echo -e "  and get fixed by the program's authors."
+    echo -e "  If the command does not return quickly then it is assumed to not support"
+    echo -e "  version switch."
     echo "";
     print_version;
 }
@@ -87,10 +89,19 @@ cmd_path=`which $CMD`
 if [ $? -ne 0 ]; then
     exit 127;
 fi
-
+`which timeout &>/dev/null`
+if [ $? -eq 0 ]; then
+	declare -i with_timeout=1;
+else
+	declare -i with_timeout=0;
+fi
 ## some tools report version info on stderr...
 for opt in --version -v -V -version; do
-	tmp_output=`$cmd_path $opt 2>&1`
+	if [ $with_timeout -eq 1 ]; then
+		tmp_output=`timeout 3 $cmd_path $opt 2>&1`
+	else
+		tmp_output=`$cmd_path $opt 2>&1`
+	fi
 	if [ $? -eq 0 ]; then
 		ver_swtch=$opt
 		break;
