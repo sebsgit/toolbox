@@ -10,4 +10,5 @@ math     - C++ code written while solving problems on projecteuler.net (primes, 
 inips    - .ini file loader in C  
 dploader - shared library loader for linux and windows, written in C  
 shell    - stuff related to linux shell and config  
+gpu      - various utilities related to gpu programming  
   
