@@ -19,19 +19,10 @@
 //TODO autodetect best kernel launch size
 //TODO nice demo (fractals ? they are always nice)
 
-#include <cstdio>
-#ifdef _WIN32
-	#include <windows.h>
-#elif defined __linux__
-    #include <dlfcn.h>
-#else
-	#error Unsupported platform !
-#endif
+#include <vector>
 #include <functional>
-#include <set>
 #include <string>
 #include <sstream>
-#include <vector>
 
 #define CUWR_NOCPY(K) private:						\
                         K (const K&) = delete;      \
@@ -40,82 +31,6 @@
                         K& operator = (K&&) = delete;
 
 namespace cuwr{
-	
-	namespace priv{
-		#ifdef _WIN32
-			typedef HMODULE dplibhandle_priv_t_;
-		#elif defined __linux__
-			typedef void * dplibhandle_priv_t_;
-		#endif
-		
-		static std::set<std::string> libcu_searchpath;
-		static dplibhandle_priv_t_ libcu_handle;
-		
-		void * dp_load(const char * path){
-			#ifdef _WIN32
-				return LoadLibraryA(path);
-			#elif defined __linux__
-				dlerror();
-				return dlopen(path,RTLD_LAZY | RTLD_LOCAL);
-			#endif
-		}
-
-		void * dp_symbol(void * h, const char * sym){
-			dplibhandle_priv_t_ p = (dplibhandle_priv_t_)h;
-			#ifdef _WIN32
-				return GetProcAddress(p,sym);
-			#elif defined __linux__
-				dlerror();
-				return dlsym(p,sym);
-			#endif
-		}
-
-		const char * dp_error(){
-			#ifdef _WIN32
-				static char buff[256];
-				snprintf(buff,256,"ERROR CODE: %i\n",GetLastError());
-				return buff;
-			#elif defined __linux__
-				return dlerror();
-			#endif
-		}
-
-		void dp_close(void * h){
-			dplibhandle_priv_t_ p = (dplibhandle_priv_t_)h;
-			if (p){
-				#ifdef _WIN32
-					FreeLibrary(p);
-				#elif defined __linux__
-					dlclose(p);
-				#endif
-			}
-		}
-		
-		int locate_cuda_rt(char * out_path, int maxLen){
-			#ifdef __linux__
-				const std::string lname = "libcuda.so";
-			#elif defined __WIN32
-				const std::string lname = "nvidia.dll";
-			#endif
-			for (const std::string& s : libcu_searchpath){
-				const std::string full_path = s+lname;
-				if (void * h = dp_load(full_path.c_str())){
-					dp_close(h);
-					snprintf(out_path,maxLen,"%s",full_path.c_str());
-					return 0;
-				}
-			}
-			return -1;
-		}
-		
-		template <typename R, typename... Arg>
-		void load_func(void * lib_handle, std::function< R (Arg...) > & fc, const char * fname){
-			fc = (R (*)(Arg...))priv::dp_symbol(lib_handle,fname);
-			if (!fc){
-				std::cerr << "could not locate symbol '"<<fname<<"'\n";
-			}
-		}
-	}
 	
 	enum result_t{
 		CUDA_SUCCESS_ = 0,
@@ -273,36 +188,36 @@ namespace cuwr{
 	typedef struct CUstream_st * stream_t;
 	
 	/* initialization */
-	std::function<result_t(int)> cuInit;
+	extern std::function<result_t(int)> cuInit;
 	/* error handling */
-	std::function<result_t(result_t,const char **)> cuGetErrorName;
-	std::function<result_t(result_t,const char **)> cuGetErrorString;
+	extern std::function<result_t(result_t,const char **)> cuGetErrorName;
+	extern std::function<result_t(result_t,const char **)> cuGetErrorString;
 	/* version info */
-	std::function<result_t(int*)> cuDriverGetVersion;
+	extern std::function<result_t(int*)> cuDriverGetVersion;
 	/* device management */
-	std::function<result_t(device_t*,int)> cuDeviceGet;
-	std::function<result_t(int*,device_attribute_t,device_t)> cuDeviceGetAttribute;
-	std::function<result_t(int *)> cuDeviceGetCount;
-	std::function<result_t(char*,int,device_t)> cuDeviceGetName;
-	std::function<result_t(size_t*,device_t)> cuDeviceTotalMem;
+	extern std::function<result_t(device_t*,int)> cuDeviceGet;
+	extern std::function<result_t(int*,device_attribute_t,device_t)> cuDeviceGetAttribute;
+	extern std::function<result_t(int *)> cuDeviceGetCount;
+	extern std::function<result_t(char*,int,device_t)> cuDeviceGetName;
+	extern std::function<result_t(size_t*,device_t)> cuDeviceTotalMem;
 	/* context management */
-	std::function<result_t(context_t*,device_t)> cuDevicePrimaryCtxRetain;
-	std::function<result_t(device_t,unsigned int *, int *)> cuDevicePrimaryCtxGetState;
-	std::function<result_t(context_t*,unsigned int,device_t)> cuCtxCreate;
-	std::function<result_t(context_t)> cuCtxDestroy;
-	std::function<result_t(context_t*)> cuCtxGetCurrent;
-	std::function<result_t(context_t)> cuCtxSetCurrent;
+	extern std::function<result_t(context_t*,device_t)> cuDevicePrimaryCtxRetain;
+	extern std::function<result_t(device_t,unsigned int *, int *)> cuDevicePrimaryCtxGetState;
+	extern std::function<result_t(context_t*,unsigned int,device_t)> cuCtxCreate;
+	extern std::function<result_t(context_t)> cuCtxDestroy;
+	extern std::function<result_t(context_t*)> cuCtxGetCurrent;
+	extern std::function<result_t(context_t)> cuCtxSetCurrent;
 	/* module management */
-	std::function<result_t(module_t*,const char *)> cuModuleLoad;
-	std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
-	std::function<result_t(module_t)> cuModuleUnload;
+	extern std::function<result_t(module_t*,const char *)> cuModuleLoad;
+	extern std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
+	extern std::function<result_t(module_t)> cuModuleUnload;
 	/* memory management */
-	std::function<result_t(device_memptr_t*,size_t)> cuMemAlloc;
-	std::function<result_t(device_memptr_t)> cuMemFree;
-	std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
-	std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+	extern std::function<result_t(device_memptr_t*,size_t)> cuMemAlloc;
+	extern std::function<result_t(device_memptr_t)> cuMemFree;
+	extern std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
+	extern std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
 	/* execution control */
-	std::function<result_t(function_t,
+	extern std::function<result_t(function_t,
 						 unsigned int, unsigned int, unsigned int, 
 					     unsigned int, unsigned int, unsigned int,
 					     unsigned int, 
@@ -310,69 +225,11 @@ namespace cuwr{
 					     void **,
 					     void **)> cuLaunchKernel;
 
-	void addSearchPath(const std::string& path){
-		priv::libcu_searchpath.insert(path);
-	}
+    extern void addSearchPath(const std::string& path);
 
-	result_t init(){
-		char path_buff[1024];
-		#ifdef __linux__
-		priv::libcu_searchpath.insert("/usr/lib/");
-		priv::libcu_searchpath.insert("/usr/lib32/");
-		priv::libcu_searchpath.insert("/usr/lib64/");
-		priv::libcu_searchpath.insert("/usr/lib/i386-linux-gnu/");
-		priv::libcu_searchpath.insert("/usr/lib/x86_64-linux-gnu/");
-		#elif defined __WIN32
-        priv::libcu_searchpath.insert("C:/Windows/System32/");
-		#endif
-		if (priv::locate_cuda_rt(path_buff,sizeof(path_buff)) == 0){
-			if(void * p = priv::dp_load(path_buff)){
-				priv::libcu_handle = p;
-				#define CU_LD(name) priv::load_func(p, name , #name);
-				CU_LD(cuInit)
-				CU_LD(cuGetErrorString)
-				CU_LD(cuGetErrorName)
-				CU_LD(cuDriverGetVersion)
-				CU_LD(cuDeviceGet)
-				CU_LD(cuDeviceGetAttribute)
-				CU_LD(cuDeviceGetCount)
-				CU_LD(cuDeviceGetName)
-				CU_LD(cuDeviceTotalMem)
-				
-				CU_LD(cuDevicePrimaryCtxRetain)
-				CU_LD(cuDevicePrimaryCtxGetState)
-				CU_LD(cuCtxCreate)
-				CU_LD(cuCtxDestroy)
-				CU_LD(cuCtxGetCurrent)
-				CU_LD(cuCtxSetCurrent)
-				
-				CU_LD(cuModuleLoad)
-				CU_LD(cuModuleGetFunction)
-				CU_LD(cuModuleUnload)
-				
-				CU_LD(cuMemAlloc)
-				CU_LD(cuMemcpyHtoD)
-				CU_LD(cuMemcpyDtoH)
-				CU_LD(cuMemFree)
-				
-				CU_LD(cuLaunchKernel)
-				#undef CU_LD
-				return cuInit(0);
-			} else{
-				std::cerr << "can't load " << path_buff << ", err: " << priv::dp_error() << "\n";
-			}
-		}
-		return CUDA_ERROR_NOT_INITIALIZED_;
-	}
-	bool isInitialized(){
-		return priv::libcu_handle != 0;
-	}
-	void cleanup(){
-		if (isInitialized()){
-			priv::dp_close(priv::libcu_handle);
-			priv::libcu_handle=0;
-		}
-	}
+    extern result_t init();
+    extern bool isInitialized();
+    extern void cleanup();
 	
 	template <typename T>
 	class DevicePtr{
@@ -385,7 +242,7 @@ namespace cuwr{
 		{
 			this->realloc(n*sizeof(T));
 			if (devPtr_ && init_value){
-				cuwr::cuMemcpyHtoD(devPtr_, init_value, size_bytes_);
+                cuwr::cuMemcpyHtoD((device_memptr_t)devPtr_, init_value, size_bytes_);
 			}
 		}
         DevicePtr(const T& value)
@@ -401,13 +258,20 @@ namespace cuwr{
 
 		~DevicePtr(){
 			if (devPtr_)
-				cuwr::cuMemFree(devPtr_);
+				cuwr::cuMemFree((device_memptr_t)devPtr_);
 		}
+        void clear(){
+            if (devPtr_){
+                cuwr::cuMemFree((device_memptr_t)devPtr_);
+                devPtr_ = 0;
+                size_bytes_ = 0;
+            }
+        }
 		cuwr::result_t realloc(size_t nbytes){
 			if (devPtr_){
-				cuwr::cuMemFree(devPtr_);
+                cuwr::cuMemFree((device_memptr_t)devPtr_);
 			}
-			const cuwr::result_t err = cuwr::cuMemAlloc(&devPtr_, nbytes);
+            const cuwr::result_t err = cuwr::cuMemAlloc((device_memptr_t*)&devPtr_, nbytes);
 			if( err == 0){
 				size_bytes_ = nbytes;
 			} else{
@@ -417,7 +281,7 @@ namespace cuwr{
 			return err;
 		}
 		cuwr::result_t load( const void * value ){
-			return cuwr::cuMemcpyHtoD(devPtr_,value,size_bytes_);
+            return cuwr::cuMemcpyHtoD((device_memptr_t)devPtr_,value,size_bytes_);
 		}
         bool operator << (const T& var){
             return this->operator <<((const void *)&var);
@@ -430,7 +294,7 @@ namespace cuwr{
             return *this;
         }
         cuwr::result_t store( void * out_buff ){
-            return cuwr::cuMemcpyDtoH(out_buff,devPtr_,size_bytes_);
+            return cuwr::cuMemcpyDtoH(out_buff,(device_memptr_t)devPtr_,size_bytes_);
         }
         bool operator >> (T& var){
             return this->operator >>((void *)&var);
@@ -468,6 +332,10 @@ namespace cuwr{
 		void push(DevicePtr<T>& ptr){
 			params_.push_back(ptr.ptrAddr());
 		}
+        template <typename T>
+        void push(T * ptr){
+            params_.push_back(ptr);
+        }
 		
 		void clear(){
 			params_.clear();
@@ -477,24 +345,14 @@ namespace cuwr{
 			gridDimX_ = gridDimY_ = gridDimZ_ = 1;
 			blockDimX_ = blockDimY_ = blockDimZ_ = 1;
 		}
-	private:
+	//private:
 		unsigned int gridDimX_=1, gridDimY_=1, gridDimZ_=1;
 		unsigned int blockDimX_=1, blockDimY_=1, blockDimZ_=1;
 		unsigned int sharedMemBytes_=0;
 		cuwr::stream_t stream_=0;
 		std::vector<void *> params_;
 		std::vector<void *> extra_;
-		friend cuwr::result_t launch_kernel(cuwr::function_t, const KernelLaunchParams&);
 	};
-	
-	cuwr::result_t launch_kernel(cuwr::function_t fn, const KernelLaunchParams& params){
-		return cuwr::cuLaunchKernel(fn,params.gridDimX_,params.gridDimY_,params.gridDimZ_,
-									   params.blockDimX_,params.blockDimY_,params.blockDimZ_,
-									params.sharedMemBytes_,
-									params.stream_,
-									params.params_.empty() ? 0 : (void**)&params.params_[0],
-									params.extra_.empty() ? 0 : (void**)&params.extra_[0]);
-	}
 	
 	class Module{
 		CUWR_NOCPY(Module)
@@ -537,7 +395,7 @@ namespace cuwr{
 			:devId_(-1)
 			,context_(nullptr)
 		{
-			if( cuwr::cuDeviceGet(&devId_,0) == 0 ){
+            if( cuwr::cuDeviceGet(&devId_,dev_number) == 0 ){
 				cuwr::cuCtxCreate(&context_,0,devId_);
 			}
 		}
@@ -575,7 +433,7 @@ namespace cuwr{
 				return std::string();
 			}
 		}
-		const size_t totalMemory() const{
+        size_t totalMemory() const{
 			size_t result=0;
 			cuwr::cuDeviceTotalMem(&result,devId_);
 			return result;
@@ -592,6 +450,8 @@ namespace cuwr{
 		int devId_;
 		cuwr::context_t context_;
 	};
+	
+	extern cuwr::result_t launch_kernel(cuwr::function_t fn, const KernelLaunchParams& params);
 	
 }
 

@@ -10,4 +10,8 @@ __global__ void kernel_2(unsigned int * values, unsigned int * value_count){
 	}
 }
 
+__global__ void kernel_3(const int in, int * out){
+	*out = in;
+}
+
 }
