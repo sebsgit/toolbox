@@ -126,6 +126,9 @@ namespace cuwr{
 					     stream_t, 
 					     void **,
 					     void **)> cuLaunchKernel;
+    /* occupancy */
+    std::function<result_t(int*, function_t, int, size_t)> cuOccupancyMaxActiveBlocksPerMultiprocessor;
+    std::function<result_t(int *, int *, function_t, function_t,size_t,int)> cuOccupancyMaxPotentialBlockSize;
 
     void addSearchPath(const std::string& path){
 		priv::libcu_searchpath.insert(path);
@@ -173,6 +176,8 @@ namespace cuwr{
 				CU_LD(cuMemFree)
 				
 				CU_LD(cuLaunchKernel)
+                CU_LD(cuOccupancyMaxPotentialBlockSize)
+                CU_LD(cuOccupancyMaxActiveBlocksPerMultiprocessor)
 				#undef CU_LD
 				return cuInit(0);
 			} else{

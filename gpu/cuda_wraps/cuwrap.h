@@ -224,6 +224,9 @@ namespace cuwr{
 					     stream_t, 
 					     void **,
 					     void **)> cuLaunchKernel;
+    /* occupancy */
+    extern std::function<result_t(int*, function_t, int, size_t)> cuOccupancyMaxActiveBlocksPerMultiprocessor;
+    extern std::function<result_t(int *, int *, function_t, function_t,size_t,int)> cuOccupancyMaxPotentialBlockSize;
 
     extern void addSearchPath(const std::string& path);
 
@@ -306,6 +309,9 @@ namespace cuwr{
 		operator T*(){
 			return devPtr_;
 		}
+        T * ptr(){
+            return devPtr_;
+        }
 		T ** ptrAddr(){
 			return &devPtr_;
 		}
