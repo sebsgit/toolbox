@@ -187,7 +187,7 @@ namespace cuwr{
     };
 	
 	typedef int device_t;
-	typedef unsigned int device_memptr_t;
+	typedef unsigned int * device_memptr_t; /*unsigned integer type whose size matches the size of a pointer*/
 	typedef struct CUctx_st * context_t;
 	typedef struct CUmod_st * module_t;
 	typedef struct CUfunc_st * function_t;
