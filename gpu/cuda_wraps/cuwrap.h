@@ -351,6 +351,9 @@ namespace cuwr{
 		device_memptr_t * ptrAddr(){
 			return &devPtr_;
 		}
+		size_t size() const{
+			return this->size_bytes_;
+		}
 	private:
 		cuwr::device_memptr_t devPtr_;
 		size_t size_bytes_;

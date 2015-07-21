@@ -25,7 +25,7 @@ Widget::Widget(QWidget *parent)
     rangeX = 3.5;
     rangeY = 2.0;
     resize(800,600);
-    _image = QImage(2000,2000,QImage::Format_RGB888);
+    _image = QImage(2500,2500,QImage::Format_RGB888);
     if (_gpu_data){
         if(_gpu_data->imgData.realloc(_image.byteCount()) != 0){
             qDebug() << "CANT ALLOC DATA";
@@ -154,9 +154,15 @@ void Widget::refreshImage(){
                 if (toCopy+pxDone > totalPixels){
                     toCopy = totalPixels-pxDone;
                 }
-                cuwr::cuMemcpyDtoH((void *)(_image.bits()+pxDone*3),
-                                   (unsigned int*)(_gpu_data->imgData.ptr()+pxDone*3),
-                                   toCopy*3);
+                if (_tmpBuffer.byteCount() != _image.byteCount()){
+					_tmpBuffer = QImage(_image.size(), _image.format());
+				}
+                cuwr::cuMemcpyDtoH((void *)_tmpBuffer.bits(),
+                                   _gpu_data->imgData.ptr(),
+                                   _gpu_data->imgData.size());
+                memcpy((void *)(_image.bits()+pxDone*3),
+                                _tmpBuffer.bits()+pxDone*3,
+							    toCopy*3);
             }
             pxDone += pxSingleLaunch;
         }

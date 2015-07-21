@@ -23,6 +23,7 @@ private slots:
     void refreshImage();
 private:
     QImage _image;
+    QImage _tmpBuffer;
     QRect _selection;
     double startX, startY, rangeX, rangeY;
 
