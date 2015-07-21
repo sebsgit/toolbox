@@ -35,7 +35,7 @@ namespace cuwr{
         inline void * dp_symbol(void * h, const char * sym){
 			dplibhandle_priv_t_ p = (dplibhandle_priv_t_)h;
 			#ifdef _WIN32
-				return GetProcAddress(p,sym);
+				return (void *)GetProcAddress(p,sym);
 			#elif defined __linux__
 				dlerror();
 				return dlsym(p,sym);
@@ -45,7 +45,7 @@ namespace cuwr{
         inline const char * dp_error(){
 			#ifdef _WIN32
 				static char buff[256];
-				snprintf(buff,256,"ERROR CODE: %i\n",GetLastError());
+				snprintf(buff,256,"ERROR CODE: %lu\n",GetLastError());
 				return buff;
 			#elif defined __linux__
 				return dlerror();
@@ -67,7 +67,7 @@ namespace cuwr{
 			#ifdef __linux__
 				const std::string lname = "libcuda.so";
 			#elif defined __WIN32
-				const std::string lname = "nvidia.dll";
+				const std::string lname = "nvcuda.dll";
 			#endif
 			for (const std::string& s : libcu_searchpath){
 				const std::string full_path = s+lname;
@@ -82,7 +82,12 @@ namespace cuwr{
 		
 		template <typename R, typename... Arg>
 		void load_func(void * lib_handle, std::function< R (Arg...) > & fc, const char * fname){
-			fc = (R (*)(Arg...))priv::dp_symbol(lib_handle,fname);
+			#ifdef __linux__
+			#define CALLCONV
+			#elif defined __WIN32
+			#define CALLCONV __stdcall
+			#endif
+			fc = (R (CALLCONV *)(Arg...))priv::dp_symbol(lib_handle,fname);
 			if (!fc){
 				std::cerr << "could not locate symbol '"<<fname<<"'\n";
 			}
@@ -143,6 +148,27 @@ namespace cuwr{
     void addSearchPath(const std::string& path){
 		priv::libcu_searchpath.insert(path);
 	}
+	
+	std::string tostr(const result_t errCode){
+		std::string result;
+		const char * ptr = nullptr;
+		cuwr::cuGetErrorName(errCode,&ptr);
+		if (ptr){
+			result = std::string(ptr);
+		} else{
+			result = "[ERR_UNKNOWN]";
+		}
+		result += ": ";
+		ptr = nullptr;
+		cuwr::cuGetErrorString(errCode,&ptr);
+		if (ptr){
+			result += std::string(ptr);
+		} else{
+			result += "(no description)";
+		}
+		result += '\n';
+		return result;
+	}
 
     result_t init(){
         char path_buff[1024];
@@ -153,11 +179,12 @@ namespace cuwr{
 		priv::libcu_searchpath.insert("/usr/lib/i386-linux-gnu/");
 		priv::libcu_searchpath.insert("/usr/lib/x86_64-linux-gnu/");
 		#elif defined __WIN32
+		priv::libcu_searchpath.insert("C:/Windows/SysWOW64/");
         priv::libcu_searchpath.insert("C:/Windows/System32/");
         #endif
         if (priv::locate_cuda_rt(path_buff,sizeof(path_buff)) == 0){
 			if(void * p = priv::dp_load(path_buff)){
-				priv::libcu_handle = p;
+				priv::libcu_handle = (priv::dplibhandle_priv_t_)p;
 				#define CU_LD(name) priv::load_func(p, name , #name);
 				CU_LD(cuInit)
 				CU_LD(cuGetErrorString)

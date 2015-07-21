@@ -68,7 +68,7 @@ namespace cuwr{
 		CUDA_ERROR_INVALID_HANDLE_ = 400,
 		CUDA_ERROR_NOT_FOUND_ =  500,
 		CUDA_ERROR_NOT_READY_ =  600,
-		CUDA_ERROR_LAUNCH_FAILED_ =  700,
+		CUDA_ERROR_ILLEGAL_ADDRESS_ =  700,
 		CUDA_ERROR_LAUNCH_OUT_OF_RESOURCES_ = 701,
 		CUDA_ERROR_LAUNCH_TIMEOUT_ = 702,
 		CUDA_ERROR_LAUNCH_INCOMPATIBLE_TEXTURING_ = 703,
@@ -187,7 +187,7 @@ namespace cuwr{
     };
 	
 	typedef int device_t;
-	typedef unsigned int * device_memptr_t;
+	typedef unsigned int device_memptr_t;
 	typedef struct CUctx_st * context_t;
 	typedef struct CUmod_st * module_t;
 	typedef struct CUfunc_st * function_t;
@@ -248,34 +248,23 @@ namespace cuwr{
     extern result_t init();
     extern bool isInitialized();
     extern void cleanup();
+    
+    extern std::string tostr(const result_t errCode);
 	
     class Exception : public std::exception{
     public:
         Exception(cuwr::result_t errCode)
             :err_(errCode)
+            ,buff_(cuwr::tostr(errCode))
         {
-            const char * ptr = nullptr;
-            cuwr::cuGetErrorName(errCode,&ptr);
-            if (ptr){
-                this->buff_ = std::string(ptr);
-            } else{
-                this->buff_ = "[ERR_UNKNOWN]";
-            }
-            this->buff_ += ": ";
-            ptr = nullptr;
-            cuwr::cuGetErrorString(errCode,&ptr);
-            if (ptr){
-                this->buff_ += std::string(ptr);
-            } else{
-                this->buff_ += "(no description)";
-            }
+            
         }
         const char * what() const noexcept(true) override{
             return buff_.c_str();
         }
     private:
         const cuwr::result_t err_;
-        std::string buff_;
+        const std::string buff_;
     };
 
 	template <typename T>
@@ -289,7 +278,10 @@ namespace cuwr{
 		{
 			this->realloc(n*sizeof(T));
 			if (devPtr_ && init_value){
-                cuwr::cuMemcpyHtoD((device_memptr_t)devPtr_, init_value, size_bytes_);
+                const result_t res = cuwr::cuMemcpyHtoD(devPtr_, init_value, size_bytes_);
+                if (res != 0){
+					throw cuwr::Exception(res);
+				}
 			}
 		}
         DevicePtr(const T& value)
@@ -305,20 +297,20 @@ namespace cuwr{
 
 		~DevicePtr(){
 			if (devPtr_)
-				cuwr::cuMemFree((device_memptr_t)devPtr_);
+				cuwr::cuMemFree(devPtr_);
 		}
         void clear(){
             if (devPtr_){
-                cuwr::cuMemFree((device_memptr_t)devPtr_);
+                cuwr::cuMemFree(devPtr_);
                 devPtr_ = 0;
                 size_bytes_ = 0;
             }
         }
 		cuwr::result_t realloc(size_t nbytes){
 			if (devPtr_){
-                cuwr::cuMemFree((device_memptr_t)devPtr_);
+                cuwr::cuMemFree(devPtr_);
 			}
-            const cuwr::result_t err = cuwr::cuMemAlloc((device_memptr_t*)&devPtr_, nbytes);
+            const cuwr::result_t err = cuwr::cuMemAlloc(&devPtr_, nbytes);
 			if( err == 0){
 				size_bytes_ = nbytes;
 			} else{
@@ -328,7 +320,7 @@ namespace cuwr{
 			return err;
 		}
 		cuwr::result_t load( const void * value ){
-            return cuwr::cuMemcpyHtoD((device_memptr_t)devPtr_,value,size_bytes_);
+            return cuwr::cuMemcpyHtoD(devPtr_,value,size_bytes_);
 		}
         bool operator << (const T& var){
             return this->operator <<((const void *)&var);
@@ -341,7 +333,7 @@ namespace cuwr{
             return *this;
         }
         cuwr::result_t store( void * out_buff ){
-            return cuwr::cuMemcpyDtoH(out_buff,(device_memptr_t)devPtr_,size_bytes_);
+            return cuwr::cuMemcpyDtoH(out_buff,devPtr_,size_bytes_);
         }
         bool operator >> (T& var){
             return this->operator >>((void *)&var);
@@ -350,17 +342,17 @@ namespace cuwr{
             return store(out_buff) == 0;
         }
 
-		operator T*(){
+		operator device_memptr_t(){
 			return devPtr_;
 		}
-        T * ptr(){
+        device_memptr_t ptr(){
             return devPtr_;
         }
-		T ** ptrAddr(){
+		device_memptr_t * ptrAddr(){
 			return &devPtr_;
 		}
 	private:
-		T * devPtr_;
+		cuwr::device_memptr_t devPtr_;
 		size_t size_bytes_;
 	};
 	
