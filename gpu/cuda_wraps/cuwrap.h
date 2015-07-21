@@ -178,6 +178,13 @@ namespace cuwr{
 		CU_DEVICE_ATTRIBUTE_MULTI_GPU_BOARD_GROUP_ID = 85,
 		CU_DEVICE_ATTRIBUTE_MAX_
 	};
+
+    enum event_flags_t{
+        CU_EVENT_DEFAULT = 0x0,
+        CU_EVENT_BLOCKING_SYNC = 0x1,
+        CU_EVENT_DISABLE_TIMING = 0x2,
+        CU_EVENT_INTERPROCESS = 0x4
+    };
 	
 	typedef int device_t;
 	typedef unsigned int * device_memptr_t;
@@ -228,12 +235,49 @@ namespace cuwr{
     extern std::function<result_t(int*, function_t, int, size_t)> cuOccupancyMaxActiveBlocksPerMultiprocessor;
     extern std::function<result_t(int *, int *, function_t, function_t,size_t,int)> cuOccupancyMaxPotentialBlockSize;
 
+    /* events */
+    extern std::function<result_t(event_t*,unsigned int)> cuEventCreate;
+    extern std::function<result_t(event_t)> cuEventDestroy;
+    extern std::function<result_t(float *,event_t,event_t)> cuEventElapsedTime;
+    extern std::function<result_t(event_t)> cuEventQuery;
+    extern std::function<result_t(event_t,stream_t)> cuEventRecord;
+    extern std::function<result_t(event_t)> cuEventSynchronize;
+
     extern void addSearchPath(const std::string& path);
 
     extern result_t init();
     extern bool isInitialized();
     extern void cleanup();
 	
+    class Exception : public std::exception{
+    public:
+        Exception(cuwr::result_t errCode)
+            :err_(errCode)
+        {
+            const char * ptr = nullptr;
+            cuwr::cuGetErrorName(errCode,&ptr);
+            if (ptr){
+                this->buff_ = std::string(ptr);
+            } else{
+                this->buff_ = "[ERR_UNKNOWN]";
+            }
+            this->buff_ += ": ";
+            ptr = nullptr;
+            cuwr::cuGetErrorString(errCode,&ptr);
+            if (ptr){
+                this->buff_ += std::string(ptr);
+            } else{
+                this->buff_ += "(no description)";
+            }
+        }
+        const char * what() const noexcept(true) override{
+            return buff_.c_str();
+        }
+    private:
+        const cuwr::result_t err_;
+        std::string buff_;
+    };
+
 	template <typename T>
 	class DevicePtr{
 	public:
@@ -456,6 +500,51 @@ namespace cuwr{
 		int devId_;
 		cuwr::context_t context_;
 	};
+
+    /*!
+     * \brief event timer
+     *     Timer t;
+     *     t.start();
+     *      ...
+     *     t.stop();
+     *     float msec = t.elapsed();
+     */
+    class Timer{
+    public:
+        Timer(unsigned int flags = cuwr::CU_EVENT_DEFAULT)
+            :result_(0.0f)
+            ,startOk_(false)
+            ,stopOk_(false)
+        {
+            this->startOk_ = (cuwr::cuEventCreate(&start_,flags)==0);
+            this->stopOk_ = (cuwr::cuEventCreate(&stop_,flags) == 0);
+        }
+        ~Timer(){
+            if (this->startOk_)
+                cuwr::cuEventDestroy(start_);
+            if (this->stopOk_)
+                cuwr::cuEventDestroy(stop_);
+        }
+        bool start(stream_t stream=0){
+            return cuwr::cuEventRecord(start_,stream)==0;
+        }
+        bool stop(stream_t stream=0){
+            return cuwr::cuEventRecord(stop_,stream)==0;
+        }
+        float elapsed(){
+            float result=0.0f;
+            cuwr::cuEventSynchronize(stop_);
+            cuwr::cuEventElapsedTime(&result,start_,stop_);
+            return result;
+        }
+
+    private:
+        cuwr::event_t start_;
+        cuwr::event_t stop_;
+        float result_;
+        bool startOk_;
+        bool stopOk_;
+    };
 	
 	extern cuwr::result_t launch_kernel(cuwr::function_t fn, const KernelLaunchParams& params);
 	

@@ -130,6 +130,16 @@ namespace cuwr{
     std::function<result_t(int*, function_t, int, size_t)> cuOccupancyMaxActiveBlocksPerMultiprocessor;
     std::function<result_t(int *, int *, function_t, function_t,size_t,int)> cuOccupancyMaxPotentialBlockSize;
 
+    /* streams */
+    std::function<result_t(event_t*,unsigned int)> cuEventCreate;
+    std::function<result_t(event_t)> cuEventDestroy;
+    std::function<result_t(float *,event_t,event_t)> cuEventElapsedTime;
+    std::function<result_t(event_t)> cuEventQuery;
+    std::function<result_t(event_t,stream_t)> cuEventRecord;
+    std::function<result_t(event_t)> cuEventSynchronize;
+
+
+
     void addSearchPath(const std::string& path){
 		priv::libcu_searchpath.insert(path);
 	}
@@ -178,6 +188,13 @@ namespace cuwr{
 				CU_LD(cuLaunchKernel)
                 CU_LD(cuOccupancyMaxPotentialBlockSize)
                 CU_LD(cuOccupancyMaxActiveBlocksPerMultiprocessor)
+
+                CU_LD(cuEventCreate)
+                CU_LD(cuEventDestroy)
+                CU_LD(cuEventElapsedTime)
+                CU_LD(cuEventQuery)
+                CU_LD(cuEventRecord)
+                CU_LD(cuEventSynchronize)
 				#undef CU_LD
 				return cuInit(0);
 			} else{

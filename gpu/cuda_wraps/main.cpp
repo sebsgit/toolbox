@@ -7,6 +7,10 @@
 
 static void test_kernel(cuwr::Gpu * gpu){
 	gpu->makeCurrent();
+
+    cuwr::Timer timer;
+    timer.start();
+
     unsigned int value=0;
 	cuwr::DevicePtr<unsigned int> dptr;
 	assert(dptr != 0);
@@ -15,8 +19,10 @@ static void test_kernel(cuwr::Gpu * gpu){
 	cuwr::KernelLaunchParams params;
 	params.setBlockSize(2,2);
 	params.push(dptr);
-	assert(0==cuwr::launch_kernel(module.function("kernel"),params));
+
+    assert(0==cuwr::launch_kernel(module.function("kernel"),params));
     dptr >> value;
+
 	assert( value == 5 );
 	
     cuwr::DevicePtr<unsigned int> dev_count = 32;
@@ -44,6 +50,9 @@ static void test_kernel(cuwr::Gpu * gpu){
     assert( 0 == cuwr::launch_kernel(module.function("kernel_3"),params));
     to_get.store(&tmp);
     assert( tmp == to_set );
+
+    timer.stop();
+    std::cout << "kernels launched in: " << timer.elapsed() << "ms.\n";
 }
 
 int main(){
@@ -57,7 +66,7 @@ int main(){
     test_kernel(gpu);
 	std::thread th(test_kernel,gpu);
 	th.join();
-	
+
 	delete gpu;
 	cuwr::cleanup();
 	return 0;
