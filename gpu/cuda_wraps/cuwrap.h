@@ -12,12 +12,10 @@
 
 //TODO stream
 //TODO context
-//TODO event
 //TODO memory
 //TODO module
 //TODO host pinned mem ptr
 //TODO autodetect best kernel launch size
-//TODO nice demo (fractals ? they are always nice)
 
 #include <vector>
 #include <functional>
@@ -180,10 +178,21 @@ namespace cuwr{
 	};
 
     enum event_flags_t{
-        CU_EVENT_DEFAULT = 0x0,
-        CU_EVENT_BLOCKING_SYNC = 0x1,
-        CU_EVENT_DISABLE_TIMING = 0x2,
-        CU_EVENT_INTERPROCESS = 0x4
+        CU_EVENT_DEFAULT_ = 0x0,
+        CU_EVENT_BLOCKING_SYNC_ = 0x1,
+        CU_EVENT_DISABLE_TIMING_ = 0x2,
+        CU_EVENT_INTERPROCESS_ = 0x4
+    };
+
+    enum host_mem_alloc_flags_t{
+        CU_MEMHOSTALLOC_PORTABLE_ = 0x01,
+        CU_MEMHOSTALLOC_DEVICEMAP_ = 0x02,
+        CU_MEMHOSTALLOC_WRITECOMBINED_ = 0x04
+    };
+
+    enum host_mem_register_flags_t{
+        CU_MEMHOSTREGISTER_PORTABLE_  = 0x01,
+        CU_MEMHOSTREGISTER_DEVICEMAP_ = 0x02
     };
 	
 	typedef int device_t;
@@ -214,15 +223,25 @@ namespace cuwr{
 	extern std::function<result_t(context_t)> cuCtxDestroy;
 	extern std::function<result_t(context_t*)> cuCtxGetCurrent;
 	extern std::function<result_t(context_t)> cuCtxSetCurrent;
+    extern std::function<result_t(void)> cuCtxSynchronize;
 	/* module management */
 	extern std::function<result_t(module_t*,const char *)> cuModuleLoad;
 	extern std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
 	extern std::function<result_t(module_t)> cuModuleUnload;
-	/* memory management */
+    /* memory management */
+    extern std::function<result_t(size_t*,size_t*)> cuMemGetInfo;
 	extern std::function<result_t(device_memptr_t*,size_t)> cuMemAlloc;
 	extern std::function<result_t(device_memptr_t)> cuMemFree;
+    extern std::function<result_t(void **,size_t)> cuMemAllocHost;
+    extern std::function<result_t(void **, size_t, unsigned int)> cuMemHostAlloc;
+    extern std::function<result_t(device_memptr_t*,void *,unsigned int)> cuMemHostGetDevicePointer;
+    extern std::function<result_t(void*,size_t,unsigned int)> cuMemHostRegister;
+    extern std::function<result_t(void*)> cuMemHostUnregister;
+    extern std::function<result_t(void *)> cuMemFreeHost;
+    extern std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	extern std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	extern std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+
 	/* execution control */
 	extern std::function<result_t(function_t,
 						 unsigned int, unsigned int, unsigned int, 
@@ -506,7 +525,7 @@ namespace cuwr{
      */
     class Timer{
     public:
-        Timer(unsigned int flags = cuwr::CU_EVENT_DEFAULT)
+        Timer(unsigned int flags = cuwr::CU_EVENT_DEFAULT_)
             :result_(0.0f)
             ,startOk_(false)
             ,stopOk_(false)

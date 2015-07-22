@@ -108,6 +108,7 @@ namespace cuwr{
 	std::function<result_t(char*,int,device_t)> cuDeviceGetName;
 	std::function<result_t(size_t*,device_t)> cuDeviceTotalMem;
 	/* context management */
+    std::function<result_t(void)> cuCtxSynchronize;
 	std::function<result_t(context_t*,device_t)> cuDevicePrimaryCtxRetain;
 	std::function<result_t(device_t,unsigned int *, int *)> cuDevicePrimaryCtxGetState;
 	std::function<result_t(context_t*,unsigned int,device_t)> cuCtxCreate;
@@ -119,8 +120,16 @@ namespace cuwr{
 	std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
 	std::function<result_t(module_t)> cuModuleUnload;
 	/* memory management */
+    std::function<result_t(size_t*,size_t*)> cuMemGetInfo;
 	std::function<result_t(device_memptr_t*,size_t)> cuMemAlloc;
 	std::function<result_t(device_memptr_t)> cuMemFree;
+    std::function<result_t(void **,size_t)> cuMemAllocHost;
+    std::function<result_t(void **, size_t, unsigned int)> cuMemHostAlloc;
+    std::function<result_t(device_memptr_t*,void *,unsigned int)> cuMemHostGetDevicePointer;
+    std::function<result_t(void*,size_t,unsigned int)> cuMemHostRegister;
+    std::function<result_t(void*)> cuMemHostUnregister;
+    std::function<result_t(void *)> cuMemFreeHost;
+    std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
 	/* execution control */
@@ -135,7 +144,7 @@ namespace cuwr{
     std::function<result_t(int*, function_t, int, size_t)> cuOccupancyMaxActiveBlocksPerMultiprocessor;
     std::function<result_t(int *, int *, function_t, function_t,size_t,int)> cuOccupancyMaxPotentialBlockSize;
 
-    /* streams */
+    /* events */
     std::function<result_t(event_t*,unsigned int)> cuEventCreate;
     std::function<result_t(event_t)> cuEventDestroy;
     std::function<result_t(float *,event_t,event_t)> cuEventElapsedTime;
@@ -182,6 +191,7 @@ namespace cuwr{
 		priv::libcu_searchpath.insert("C:/Windows/SysWOW64/");
         priv::libcu_searchpath.insert("C:/Windows/System32/");
         #endif
+
         if (priv::locate_cuda_rt(path_buff,sizeof(path_buff)) == 0){
 			if(void * p = priv::dp_load(path_buff)){
 				priv::libcu_handle = (priv::dplibhandle_priv_t_)p;
@@ -195,7 +205,8 @@ namespace cuwr{
 				CU_LD(cuDeviceGetCount)
 				CU_LD(cuDeviceGetName)
 				CU_LD(cuDeviceTotalMem)
-				
+
+                CU_LD(cuCtxSynchronize)
 				CU_LD(cuDevicePrimaryCtxRetain)
 				CU_LD(cuDevicePrimaryCtxGetState)
 				CU_LD(cuCtxCreate)
@@ -207,11 +218,19 @@ namespace cuwr{
 				CU_LD(cuModuleGetFunction)
 				CU_LD(cuModuleUnload)
 				
+                CU_LD(cuMemGetInfo)
 				CU_LD(cuMemAlloc)
+                CU_LD(cuMemAllocHost)
+                CU_LD(cuMemHostAlloc)
+                CU_LD(cuMemHostGetDevicePointer)
+                CU_LD(cuMemHostRegister)
+                CU_LD(cuMemHostUnregister)
+                CU_LD(cuMemcpy)
 				CU_LD(cuMemcpyHtoD)
 				CU_LD(cuMemcpyDtoH)
 				CU_LD(cuMemFree)
-				
+                CU_LD(cuMemFreeHost)
+
 				CU_LD(cuLaunchKernel)
                 CU_LD(cuOccupancyMaxPotentialBlockSize)
                 CU_LD(cuOccupancyMaxActiveBlocksPerMultiprocessor)
