@@ -450,7 +450,7 @@ namespace cuwr{
             if (initSize > 0)
                 this->resize(initSize);
         }
-        void resize(const size_t count){
+        cuwr::result_t resize(const size_t count){
             if (Alloc::isNull(devPtr_)==false){
                 Alloc::free(devPtr_);
                 Alloc::zero(&devPtr_);
@@ -458,9 +458,8 @@ namespace cuwr{
             const cuwr::result_t errCode = Alloc::alloc(&devPtr_,count*sizeof(T));
             if (errCode==0){
                 this->count_ = count;
-            } else{
-                throw Exception(errCode);
             }
+            return errCode;
         }
         cuwr::result_t load(const void * value, const size_t count = 0){
             return Alloc::copyToDevice(devPtr_,value,sizeof(T)*(count > 0 ? count : this->count_));

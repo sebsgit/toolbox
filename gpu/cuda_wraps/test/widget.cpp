@@ -27,7 +27,7 @@ Widget::Widget(QWidget *parent)
     resize(800,600);
     _image = QImage(2500,2500,QImage::Format_RGB888);
     if (_gpu_data){
-        if(_gpu_data->imgData.realloc(_image.byteCount()) != 0){
+        if(_gpu_data->imgData.resize(_image.byteCount()) != 0){
             qDebug() << "CANT ALLOC DATA";
         } else{
             qDebug() << "allocated: " << _image.byteCount()/(1024*1024) << "mb";
@@ -38,7 +38,6 @@ Widget::Widget(QWidget *parent)
 
 Widget::~Widget(){
     if (_gpu_data){
-        _gpu_data->imgData.clear();
         _gpu_data.reset();
     }
     cuwr::cleanup();
@@ -134,7 +133,7 @@ void Widget::refreshImage(){
         _gpu_data->params.setGridSize(blockSize,1);
         _gpu_data->params.setBlockSize(gridSize,1);
         _gpu_data->params.push(&pxDone);
-        _gpu_data->params.push( _gpu_data->imgData );
+        _gpu_data->params.push(_gpu_data->imgData);
         _gpu_data->params.push(&w);
         _gpu_data->params.push(&h);
         _gpu_data->params.push(&bpl);
@@ -157,9 +156,7 @@ void Widget::refreshImage(){
                 if (_tmpBuffer.byteCount() != _image.byteCount()){
 					_tmpBuffer = QImage(_image.size(), _image.format());
 				}
-                cuwr::cuMemcpyDtoH((void *)_tmpBuffer.bits(),
-                                   _gpu_data->imgData.ptr(),
-                                   _gpu_data->imgData.size());
+                _gpu_data->imgData.store((void*)_tmpBuffer.bits());
                 memcpy((void *)(_image.bits()+pxDone*3),
                                 _tmpBuffer.bits()+pxDone*3,
 							    toCopy*3);

@@ -29,7 +29,7 @@ private:
 
     struct gpu_data{
         QScopedPointer<cuwr::Gpu> gpu;
-        cuwr::DevicePtr<unsigned char> imgData;
+        cuwr::DeviceArray<unsigned char, cuwr::DeviceMemPinnedAllocator> imgData;
         cuwr::KernelLaunchParams params;
         cuwr::Module module;
     };
