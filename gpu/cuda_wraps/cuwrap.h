@@ -295,7 +295,12 @@ namespace cuwr{
         {
             
         }
-        const char * what() const noexcept(true) override{
+        const char * what() const 
+						#ifdef __linux__
+							noexcept(true) 
+						#endif	
+							override
+		{
             return buff_.c_str();
         }
     private:

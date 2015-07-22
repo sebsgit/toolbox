@@ -42,13 +42,14 @@ namespace cuwr{
 			#endif
 		}
 
-        inline const char * dp_error(){
+        inline std::string dp_error(){
 			#ifdef _WIN32
-				static char buff[256];
-				snprintf(buff,256,"ERROR CODE: %lu\n",GetLastError());
-				return buff;
+				std::stringstream stream;
+				stream << "ERROR CODE: ";
+				stream << GetLastError();
+				return stream.str();
 			#elif defined __linux__
-				return dlerror();
+				return std::string(dlerror());
 			#endif
 		}
 
@@ -63,17 +64,17 @@ namespace cuwr{
 			}
 		}
 		
-        inline int locate_cuda_rt(char * out_path, int maxLen){
+        inline int locate_cuda_rt(std::string& out_path){
 			#ifdef __linux__
 				const std::string lname = "libcuda.so";
-			#elif defined __WIN32
+			#elif defined _WIN32
 				const std::string lname = "nvcuda.dll";
 			#endif
 			for (const std::string& s : libcu_searchpath){
 				const std::string full_path = s+lname;
 				if (void * h = dp_load(full_path.c_str())){
 					dp_close(h);
-					snprintf(out_path,maxLen,"%s",full_path.c_str());
+					out_path = full_path;
 					return 0;
 				}
 			}
@@ -84,7 +85,7 @@ namespace cuwr{
 		void load_func(void * lib_handle, std::function< R (Arg...) > & fc, const char * fname){
 			#ifdef __linux__
 			#define CALLCONV
-			#elif defined __WIN32
+			#elif defined _WIN32
 			#define CALLCONV __stdcall
 			#endif
 			fc = (R (CALLCONV *)(Arg...))priv::dp_symbol(lib_handle,fname);
@@ -190,20 +191,20 @@ namespace cuwr{
 	}
 
     result_t init(){
-        char path_buff[1024];
+		std::string path;
 		#ifdef __linux__
 		priv::libcu_searchpath.insert("/usr/lib/");
 		priv::libcu_searchpath.insert("/usr/lib32/");
 		priv::libcu_searchpath.insert("/usr/lib64/");
 		priv::libcu_searchpath.insert("/usr/lib/i386-linux-gnu/");
 		priv::libcu_searchpath.insert("/usr/lib/x86_64-linux-gnu/");
-		#elif defined __WIN32
+		#elif defined _WIN32
 		priv::libcu_searchpath.insert("C:/Windows/SysWOW64/");
         priv::libcu_searchpath.insert("C:/Windows/System32/");
         #endif
 
-        if (priv::locate_cuda_rt(path_buff,sizeof(path_buff)) == 0){
-			if(void * p = priv::dp_load(path_buff)){
+        if (priv::locate_cuda_rt(path) == 0){
+			if(void * p = priv::dp_load(path.c_str())){
 				priv::libcu_handle = (priv::dplibhandle_priv_t_)p;
 				#define CU_LD(name) priv::load_func(p, name , #name);
 				CU_LD(cuInit)
@@ -264,7 +265,7 @@ namespace cuwr{
 				#undef CU_LD
 				return cuInit(0);
 			} else{
-				std::cerr << "can't load " << path_buff << ", err: " << priv::dp_error() << "\n";
+				std::cerr << "can't load " << path << ", err: " << priv::dp_error() << "\n";
 			}
 		}
 		return CUDA_ERROR_NOT_INITIALIZED_;
