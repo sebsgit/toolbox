@@ -506,11 +506,14 @@ namespace cuwr{
 			gridDimY_ = y;
 			gridDimZ_ = z;
 		}
-		void setBlockSize(unsigned int x, unsigned int y, unsigned int z=1){
+        void setBlockSize(unsigned int x, unsigned int y, unsigned int z=1){
 			blockDimX_ = x;
 			blockDimY_ = y;
 			blockDimZ_ = z;
 		}
+        void setStream(cuwr::stream_t stream){
+            this->stream_ = stream;
+        }
         void push(const DeviceValueBase& ptr){
             params_.push_back(ptr.ptrAddress());
 		}

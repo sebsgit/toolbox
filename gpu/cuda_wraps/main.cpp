@@ -28,6 +28,7 @@ static void test_stream(){
     assert(module.isLoaded());
     cuwr::KernelLaunchParams params;
     params.setBlockSize(1,1);
+    params.setStream(stream);
     cuwr::DeviceValue<int> value;
     params.push(value);
     cuassert( cuwr::launch_kernel(module.function("kernel"),params) );
