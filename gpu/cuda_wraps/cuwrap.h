@@ -21,6 +21,7 @@
 #include <functional>
 #include <string>
 #include <sstream>
+#include <cstring>
 
 #define CUWR_NOCPY(K) private:						\
                         K (const K&) = delete;      \
@@ -286,60 +287,122 @@ namespace cuwr{
         const std::string buff_;
     };
 
-	template <typename T>
-	class DevicePtr{
+    /*!
+     * \brief base class for device values
+     */
+    class DeviceValueBase{
+    public:
+        virtual ~DeviceValueBase(){
+        }
+        virtual cuwr::device_memptr_t * ptrAddress() const = 0;
+        virtual size_t size() const = 0;
+    };
+
+    class DeviceMemAllocator{
+    public:
+        typedef cuwr::device_memptr_t pointer_type;
+
+        static void zero(pointer_type * p){
+            *p = 0;
+        }
+        static bool isNull(const pointer_type& p){
+            return p==0;
+        }
+        static cuwr::result_t alloc(pointer_type * outp, const size_t nBytes){
+            return cuwr::cuMemAlloc(outp,nBytes);
+        }
+        static cuwr::result_t free(pointer_type ptr){
+            return cuwr::cuMemFree(ptr);
+        }
+        static cuwr::result_t copyToDevice(pointer_type dest, const void * src, const size_t nbytes){
+            return cuwr::cuMemcpyHtoD(dest,src,nbytes);
+        }
+        static cuwr::result_t copyToHost(void * dest, pointer_type src, const size_t nbytes){
+            return cuwr::cuMemcpyDtoH(dest,src,nbytes);
+        }
+        static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
+            return (cuwr::device_memptr_t*)&src;
+        }
+    };
+    class DeviceMemPinnedAllocator{
+    public:
+        typedef struct{
+            void * hostp_ = 0;
+            cuwr::device_memptr_t devp_ = 0;
+        } pointer_type;
+
+        static void zero(pointer_type * p){
+            p->devp_ = 0;
+            p->hostp_ = 0;
+        }
+        static bool isNull(const pointer_type& p){
+            return p.hostp_==0;
+        }
+        static cuwr::result_t alloc(pointer_type * outp, const size_t nBytes){
+            cuwr::result_t err = cuwr::cuMemHostAlloc(&outp->hostp_,nBytes,cuwr::CU_MEMHOSTALLOC_DEVICEMAP_);
+            if (err == 0){
+                err = cuwr::cuMemHostGetDevicePointer(&outp->devp_,outp->hostp_,0);
+            }
+            return err;
+        }
+        static cuwr::result_t free(pointer_type ptr){
+            return cuwr::cuMemFreeHost(ptr.hostp_);
+        }
+        static cuwr::result_t copyToDevice(pointer_type dest, const void * src, const size_t nbytes){
+            return memcpy(dest.hostp_,src,nbytes) != 0 ? cuwr::CUDA_SUCCESS_ : cuwr::CUDA_ERROR_ILLEGAL_ADDRESS_;
+        }
+        static cuwr::result_t copyToHost(void * dest, pointer_type src, const size_t nbytes){
+            const cuwr::result_t err = cuwr::cuCtxSynchronize();
+            if (err == 0)
+                memcpy(dest,src.hostp_,nbytes);
+            return err;
+        }
+        static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
+            return (cuwr::device_memptr_t*)&src.devp_;
+        }
+    };
+
+    template <typename T, typename Alloc = DeviceMemAllocator>
+    class DeviceValue : public DeviceValueBase{
 	public:
 	
 		typedef T value_type;
+        typedef Alloc allocator_type;
 	
-		DevicePtr(const void * init_value=0, size_t n=1)
-			:devPtr_(0)
+        DeviceValue(const void * init_value=0)
 		{
-			this->realloc(n*sizeof(T));
-			if (devPtr_ && init_value){
-                const result_t res = cuwr::cuMemcpyHtoD(devPtr_, init_value, size_bytes_);
-                if (res != 0){
-					throw cuwr::Exception(res);
-				}
-			}
+            Alloc::zero(&devPtr_);
+            cuwr::result_t err = Alloc::alloc(&devPtr_, sizeof(T));
+            if( err == 0){
+                if (init_value)
+                    err = Alloc::copyToDevice(devPtr_, init_value, sizeof(T));
+            }
+            if (err != 0){
+                throw cuwr::Exception(err);
+            }
 		}
-        DevicePtr(const T& value)
-            :DevicePtr((const void*)&value,1)
+        DeviceValue(const T& value)
+            :DeviceValue((const void*)&value)
         {
         }
-        DevicePtr(DevicePtr&& other)
+        DeviceValue(DeviceValue&& other)
             :devPtr_(other.devPtr_)
-            ,size_bytes_(other.size_bytes_)
         {
-            other.devPtr_=0;
+            Alloc::zero(&other.devPtr_);
         }
 
-		~DevicePtr(){
-			if (devPtr_)
-				cuwr::cuMemFree(devPtr_);
+        ~DeviceValue(){
+            if (Alloc::isNull(devPtr_)==false)
+                Alloc::free(devPtr_);
 		}
         void clear(){
-            if (devPtr_){
-                cuwr::cuMemFree(devPtr_);
-                devPtr_ = 0;
-                size_bytes_ = 0;
+            if (Alloc::isNull(devPtr_)==false){
+                Alloc::free(devPtr_);
+                Alloc::zero(&devPtr_);
             }
         }
-		cuwr::result_t realloc(size_t nbytes){
-			if (devPtr_){
-                cuwr::cuMemFree(devPtr_);
-			}
-            const cuwr::result_t err = cuwr::cuMemAlloc(&devPtr_, nbytes);
-			if( err == 0){
-				size_bytes_ = nbytes;
-			} else{
-				devPtr_ = 0;
-				size_bytes_ = 0;
-			}
-			return err;
-		}
 		cuwr::result_t load( const void * value ){
-            return cuwr::cuMemcpyHtoD(devPtr_,value,size_bytes_);
+            return Alloc::copyToDevice(devPtr_,value,sizeof(T));
 		}
         bool operator << (const T& var){
             return this->operator <<((const void *)&var);
@@ -347,36 +410,76 @@ namespace cuwr{
         bool operator << (const void * value){
             return load(value) == 0;
         }
-        DevicePtr& operator = (const T& value){
+        DeviceValue& operator = (const T& value){
             this->load((const void *)&value);
             return *this;
         }
-        cuwr::result_t store( void * out_buff ){
-            return cuwr::cuMemcpyDtoH(out_buff,devPtr_,size_bytes_);
+        cuwr::result_t store( void * out_buff ) const{
+            return Alloc::copyToHost(out_buff,devPtr_,sizeof(T));
         }
-        bool operator >> (T& var){
+        bool operator >> (T& var) const{
             return this->operator >>((void *)&var);
         }
-        bool operator >> (void * out_buff){
+        bool operator >> (void * out_buff) const{
             return store(out_buff) == 0;
         }
 
-		operator device_memptr_t(){
-			return devPtr_;
+        operator T() const{
+            T tmp;
+            this->store(&tmp);
+            return tmp;
 		}
-        device_memptr_t ptr(){
-            return devPtr_;
-        }
-		device_memptr_t * ptrAddr(){
-			return &devPtr_;
+        device_memptr_t * ptrAddress() const override{
+            return Alloc::deviceAddress(devPtr_);
 		}
-		size_t size() const{
-			return this->size_bytes_;
+        size_t size() const override{
+            return sizeof(T);
 		}
 	private:
-		cuwr::device_memptr_t devPtr_;
-		size_t size_bytes_;
+        typename Alloc::pointer_type devPtr_;
 	};
+
+    template <typename T, typename Alloc = DeviceMemAllocator>
+    class DeviceArray : public DeviceValueBase{
+    public:
+        typedef T value_type;
+        DeviceArray(const size_t initSize=0)
+            :count_(0)
+        {
+            Alloc::zero(&devPtr_);
+            if (initSize > 0)
+                this->resize(initSize);
+        }
+        void resize(const size_t count){
+            if (Alloc::isNull(devPtr_)==false){
+                Alloc::free(devPtr_);
+                Alloc::zero(&devPtr_);
+            }
+            const cuwr::result_t errCode = Alloc::alloc(&devPtr_,count*sizeof(T));
+            if (errCode==0){
+                this->count_ = count;
+            } else{
+                throw Exception(errCode);
+            }
+        }
+        cuwr::result_t load(const void * value, const size_t count = 0){
+            return Alloc::copyToDevice(devPtr_,value,sizeof(T)*(count > 0 ? count : this->count_));
+        }
+        cuwr::result_t store(void * out, const size_t count = 0){
+            return Alloc::copyToHost(out,devPtr_,sizeof(T)*(count > 0 ? count : this->count_));
+        }
+
+        size_t size() const override{
+            return this->count_*sizeof(T);
+        }
+        device_memptr_t * ptrAddress() const override{
+            return Alloc::deviceAddress(devPtr_);
+        }
+
+    private:
+        typename Alloc::pointer_type devPtr_;
+        size_t count_;
+    };
 	
 	class KernelLaunchParams{
 		CUWR_NOCPY(KernelLaunchParams)
@@ -392,9 +495,8 @@ namespace cuwr{
 			blockDimY_ = y;
 			blockDimZ_ = z;
 		}
-		template <typename T>
-		void push(DevicePtr<T>& ptr){
-			params_.push_back(ptr.ptrAddr());
+        void push(const DeviceValueBase& ptr){
+            params_.push_back(ptr.ptrAddress());
 		}
         template <typename T>
         void push(T * ptr){
@@ -409,13 +511,15 @@ namespace cuwr{
 			gridDimX_ = gridDimY_ = gridDimZ_ = 1;
 			blockDimX_ = blockDimY_ = blockDimZ_ = 1;
 		}
-	//private:
+    private:
 		unsigned int gridDimX_=1, gridDimY_=1, gridDimZ_=1;
 		unsigned int blockDimX_=1, blockDimY_=1, blockDimZ_=1;
 		unsigned int sharedMemBytes_=0;
 		cuwr::stream_t stream_=0;
 		std::vector<void *> params_;
 		std::vector<void *> extra_;
+
+        friend cuwr::result_t launch_kernel(cuwr::function_t, const KernelLaunchParams&);
 	};
 	
 	class Module{

@@ -39,18 +39,42 @@ static void test_pinned_mem(cuwr::Gpu * gpu){
         cuassert(cuwr::cuMemFreeHost(hostMem));
         cuassert(cuwr::cuMemHostUnregister(mem));
         free(mem);
+
+        unsigned int test = 19;
+        cuwr::DeviceMemPinnedAllocator::pointer_type pinnedPtr;
+        cuwr::DeviceMemPinnedAllocator::zero(&pinnedPtr);
+        cuassert(cuwr::DeviceMemPinnedAllocator::alloc(&pinnedPtr,sizeof(test)));
+        cuassert(cuwr::DeviceMemPinnedAllocator::copyToDevice(pinnedPtr,&test,sizeof(test)));
+        test = 12323;
+        cuassert(cuwr::DeviceMemPinnedAllocator::copyToHost(&test,pinnedPtr,sizeof(test)));
+        assert(test == 19);
+
+        cuwr::DeviceValue<int, cuwr::DeviceMemPinnedAllocator> val;
+        val = 123;
+        const int testVal = val;
+        assert(val == testVal);
+
+        params.clear();
+        params.setBlockSize(1,1);
+        params.push(val);
+        cuassert(cuwr::launch_kernel(module.function("kernel"),params));
+        unsigned int testVal2=1233;
+        testVal2 = val;
+        assert(testVal2 == 5);
+
+        cuassert(cuwr::DeviceMemPinnedAllocator::free(pinnedPtr));
     } else{
         std::cout << gpu->name() << " : can't map host memory.\n";
     }
 }
 
 static void test_kernel(cuwr::Gpu * gpu){
+    (void)gpu;
     cuwr::Timer timer;
     timer.start();
 
     unsigned int value=0;
-	cuwr::DevicePtr<unsigned int> dptr;
-	assert(dptr != 0);
+    cuwr::DeviceValue<unsigned int, cuwr::DeviceMemPinnedAllocator> dptr;
 	cuwr::Module module("kernel.ptx");
 	assert(module.isLoaded());
 	cuwr::KernelLaunchParams params;
@@ -58,34 +82,35 @@ static void test_kernel(cuwr::Gpu * gpu){
 	params.push(dptr);
 
     cuassert(cuwr::launch_kernel(module.function("kernel"),params));
-    dptr >> value;
+    value = dptr;
 
 	assert( value == 5 );
 	
-    cuwr::DevicePtr<unsigned int> dev_count = 32;
-	unsigned int array[32];
+    cuwr::DeviceValue<unsigned int> dev_count = 32;
+    cuwr::DeviceArray<unsigned int, cuwr::DeviceMemPinnedAllocator> dev_array;
+    unsigned int array[32];
 	for (int i=0 ; i<32 ; ++i){
 		array[i] = i+1;
 	}
-    dptr.realloc(sizeof(array));
-    dptr << array;
+    dev_array.resize(sizeof(array)/sizeof(array[0]));
+    dev_array.load(array);
 	params.clear();
-	params.push(dptr);
+    params.push(dev_array);
 	params.push(dev_count);
 	params.setBlockSize(56,1);
     cuassert( cuwr::launch_kernel(module.function("kernel_2"),params) );
-    dptr >> array;
+    dev_array.store(array);
 	for (int i=0 ; i<32 ; ++i){
 		assert( array[i] == 2u*(i+1) );
 	}
     params.clear();
     int to_set = 123, tmp = -1;
-    cuwr::DevicePtr<int> to_get = 0;
+    cuwr::DeviceValue<int> to_get = 0;
     params.clear();
     params.push(&to_set);
     params.push(to_get);
     cuassert( cuwr::launch_kernel(module.function("kernel_3"),params));
-    to_get.store(&tmp);
+    tmp = to_get;
     assert( tmp == to_set );
 
     timer.stop();
