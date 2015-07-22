@@ -8,8 +8,36 @@
 
 #define cuassert(what) { const cuwr::result_t err = what; if(err!=0){ std::cout << __LINE__ << ":" << cuwr::tostr(err); assert(0);} }
 
+static int stream_cb_launched = 0;
+
+static void stream_cb(cuwr::stream_t /*s*/, cuwr::result_t res, void *){
+    stream_cb_launched = 1;
+    cuassert(res);
+}
+
+static void test_stream(){
+    stream_cb_launched = 0;
+    cuwr::stream_t stream=0;
+    cuassert( cuwr::cuStreamCreate(&stream,cuwr::CU_STREAM_DEFAULT) );
+    unsigned int flags=123;
+    cuassert( cuwr::cuStreamGetFlags(stream,&flags) );
+    assert(flags == cuwr::CU_STREAM_DEFAULT);
+
+    cuassert(cuwr::cuStreamAddCallback(stream,stream_cb,0,0));
+    cuwr::Module module("kernel.ptx");
+    assert(module.isLoaded());
+    cuwr::KernelLaunchParams params;
+    params.setBlockSize(1,1);
+    cuwr::DeviceValue<int> value;
+    params.push(value);
+    cuassert( cuwr::launch_kernel(module.function("kernel"),params) );
+    cuassert( cuwr::cuStreamSynchronize(stream) );
+    assert(stream_cb_launched);
+    cuassert( cuwr::cuStreamDestroy(stream) );
+}
+
 static void test_pinned_mem(cuwr::Gpu * gpu){
-    if (gpu->canMapHost()){
+    if (gpu->attribute(cuwr::CU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY_)){
         size_t freebytes, total;
         cuassert(cuwr::cuMemGetInfo(&freebytes,&total));
         assert(freebytes > 0);
@@ -121,6 +149,7 @@ static void test_suite(cuwr::Gpu * gpu){
     gpu->makeCurrent();
     test_kernel(gpu);
     test_pinned_mem(gpu);
+    test_stream();
 }
 
 int main(){

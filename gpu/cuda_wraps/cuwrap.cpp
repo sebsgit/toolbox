@@ -132,6 +132,16 @@ namespace cuwr{
     std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+    /* stream management */
+    std::function<result_t(stream_t,stream_callback_t,void*,unsigned int)> cuStreamAddCallback;
+    std::function<result_t(stream_t*, unsigned int)> cuStreamCreate;
+    std::function<result_t(stream_t*, unsigned int, int)> cuStreamCreateWithPriority;
+    std::function<result_t(stream_t)> cuStreamDestroy;
+    std::function<result_t(stream_t, unsigned int *)> cuStreamGetFlags;
+    std::function<result_t(stream_t, int *)> cuStreamGetPriority;
+    std::function<result_t(stream_t)> cuStreamQuery;
+    std::function<result_t(stream_t)> cuStreamSynchronize;
+    std::function<result_t(stream_t,event_t,unsigned int)> cuStreamWaitEvent;
 	/* execution control */
 	std::function<result_t(function_t,
 						 unsigned int, unsigned int, unsigned int, 
@@ -230,6 +240,16 @@ namespace cuwr{
 				CU_LD(cuMemcpyDtoH)
 				CU_LD(cuMemFree)
                 CU_LD(cuMemFreeHost)
+
+                CU_LD(cuStreamAddCallback)
+                CU_LD(cuStreamCreate)
+                CU_LD(cuStreamCreateWithPriority)
+                CU_LD(cuStreamDestroy)
+                CU_LD(cuStreamGetFlags)
+                CU_LD(cuStreamGetPriority)
+                CU_LD(cuStreamQuery)
+                CU_LD(cuStreamSynchronize)
+                CU_LD(cuStreamWaitEvent)
 
 				CU_LD(cuLaunchKernel)
                 CU_LD(cuOccupancyMaxPotentialBlockSize)

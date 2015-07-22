@@ -14,7 +14,6 @@
 //TODO context
 //TODO memory
 //TODO module
-//TODO host pinned mem ptr
 //TODO autodetect best kernel launch size
 
 #include <vector>
@@ -195,6 +194,11 @@ namespace cuwr{
         CU_MEMHOSTREGISTER_PORTABLE_  = 0x01,
         CU_MEMHOSTREGISTER_DEVICEMAP_ = 0x02
     };
+
+    enum stream_creation_flags_t{
+        CU_STREAM_DEFAULT = 0x0,
+        CU_STREAM_NON_BLOCKING = 0x1
+    };
 	
 	typedef int device_t;
 	typedef unsigned int * device_memptr_t; /*unsigned integer type whose size matches the size of a pointer*/
@@ -242,6 +246,18 @@ namespace cuwr{
     extern std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	extern std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	extern std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+
+	/* stream management */
+    typedef void (* stream_callback_t )( stream_t, result_t, void*);
+    extern std::function<result_t(stream_t,stream_callback_t,void*,unsigned int)> cuStreamAddCallback;
+    extern std::function<result_t(stream_t*, unsigned int)> cuStreamCreate;
+    extern std::function<result_t(stream_t*, unsigned int, int)> cuStreamCreateWithPriority;
+    extern std::function<result_t(stream_t)> cuStreamDestroy;
+    extern std::function<result_t(stream_t, unsigned int *)> cuStreamGetFlags;
+    extern std::function<result_t(stream_t, int *)> cuStreamGetPriority;
+    extern std::function<result_t(stream_t)> cuStreamQuery;
+    extern std::function<result_t(stream_t)> cuStreamSynchronize;
+    extern std::function<result_t(stream_t,event_t,unsigned int)> cuStreamWaitEvent;
 
 	/* execution control */
 	extern std::function<result_t(function_t,
@@ -361,8 +377,9 @@ namespace cuwr{
             return (cuwr::device_memptr_t*)&src.devp_;
         }
     };
+    typedef DeviceMemAllocator DefaultAllocator;
 
-    template <typename T, typename Alloc = DeviceMemAllocator>
+    template <typename T, typename Alloc = DefaultAllocator>
     class DeviceValue : public DeviceValueBase{
 	public:
 	
@@ -439,7 +456,7 @@ namespace cuwr{
         typename Alloc::pointer_type devPtr_;
 	};
 
-    template <typename T, typename Alloc = DeviceMemAllocator>
+    template <typename T, typename Alloc = DefaultAllocator>
     class DeviceArray : public DeviceValueBase{
     public:
         typedef T value_type;
@@ -573,6 +590,9 @@ namespace cuwr{
 			if (context_)
 				cuwr::cuCtxDestroy(context_);
 		}
+		bool isInitialized() const{
+			return context_ != nullptr;
+		}
 		/*!
 		 * \brief makes this gpu context current for the calling thread
 		 * if this gpu context is already current, the call has no effect
@@ -613,9 +633,6 @@ namespace cuwr{
 			cuwr::cuDeviceGetAttribute(&result,attr,devId_);
 			return result;
 		}
-		bool canMapHost() const{
-			return this->attribute(cuwr::CU_DEVICE_ATTRIBUTE_CAN_MAP_HOST_MEMORY_);
-		}	
 	private:
 		int devId_;
 		cuwr::context_t context_;
