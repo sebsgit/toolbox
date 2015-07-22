@@ -498,8 +498,8 @@ namespace cuwr{
             params_.push_back(ptr.ptrAddress());
 		}
         template <typename T>
-        void push(T * ptr){
-            params_.push_back(ptr);
+        void push(const T * ptr){
+            params_.push_back((void *)ptr);
         }
 		
 		void clear(){
@@ -541,11 +541,14 @@ namespace cuwr{
 		cuwr::result_t load(const char * fname){
 			return cuwr::cuModuleLoad(&module_,fname);
 		}
-		cuwr::function_t function(const char * name){
+		cuwr::function_t function(const char * name, cuwr::result_t * errCode = nullptr){
 			cuwr::function_t fn = 0;
-			const cuwr::result_t e = cuwr::cuModuleGetFunction(&fn,module_,name);
-			if (e != 0)
+			const cuwr::result_t err = cuwr::cuModuleGetFunction(&fn,module_,name);
+			if (err != 0)
 				fn=0;
+			if (errCode){
+				*errCode = err;
+			}
 			return fn;
 		}
 	private:
