@@ -492,7 +492,7 @@ namespace cuwr{
         size_t size() const override{
             return sizeof(T);
 		}
-        typename Alloc::pointer_type dataPtr(){
+        typename Alloc::pointer_type dataPtr() const{
             return this->devPtr_;
         }
 
@@ -580,7 +580,19 @@ namespace cuwr{
 	class KernelLaunchParams{
 		CUWR_NOCPY(KernelLaunchParams)
 	public:
-		KernelLaunchParams() = default;
+        KernelLaunchParams() = default;
+        unsigned int gridX() const{
+            return this->gridDimX_;
+        }
+        unsigned int gridY() const{
+            return this->gridDimY_;
+        }
+        unsigned int blockX() const{
+            return this->blockDimX_;
+        }
+        unsigned int blockY() const{
+            return this->blockDimY_;
+        }
 		void setGridSize(unsigned int x, unsigned int y, unsigned int z=1){
 			gridDimX_ = x;
 			gridDimY_ = y;

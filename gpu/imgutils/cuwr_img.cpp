@@ -6,17 +6,24 @@ namespace cuwr{
         static cuwr::Module img_module;
         static cuwr::function_t swap_rgb;
         static cuwr::function_t set_pixels;
+        static cuwr::function_t copy;
         static cuwr::result_t init_module(){
             if (img_module.isLoaded() == false){
                 const cuwr::result_t err = img_module.load("cuwr_imgutils.ptx");
                 if (err == cuwr::CUDA_SUCCESS_){
                     priv::swap_rgb = img_module.function("cuwr_swap_rgb");
                     priv::set_pixels = img_module.function("cuwr_set_pixels");
+                    priv::copy = img_module.function("cuwr_copy");
                 }
                 return err;
             }
             return cuwr::CUDA_SUCCESS_;
         }
+    }
+
+    void Image::maxImageSize(const Gpu &gpu, size_t *maxWidth, size_t *maxHeight){
+        *maxHeight = gpu.attribute(cuwr::CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_Y_);
+        *maxWidth = gpu.attribute(cuwr::CU_DEVICE_ATTRIBUTE_MAX_GRID_DIM_X_);
     }
 
     static size_t get_bpp(const cuwr::image_format_t fmt){
@@ -117,6 +124,11 @@ namespace cuwr{
         const cuwr_image_kernel_data_t tmp = this->header_;
         return tmp.width;
     }
+    void Image::setAutoSync(bool on, cuwr::stream_t stream){
+        this->autoSync_ = on;
+        this->autoSyncStream_ = stream;
+    }
+
     void Image::swapRgb(){
         this->prepare_launch();
         if(result_t r = cuwr::launch_kernel(priv::swap_rgb,params_)){
@@ -135,9 +147,6 @@ namespace cuwr{
         if(result_t r = cuwr::launch_kernel(priv::set_pixels,params_)){
             throw Exception(r);
         }
-    }
-    void Image::load(const unsigned char *data){
-        this->data_.load(data);
     }
 
     /*
@@ -159,16 +168,54 @@ namespace cuwr{
         *h = (p2_h*p2 > n_elems) ? p2_h :p2_h*2;
     }
 
-    void Image::recalculate_kernel_size(){
+
+    /* guess best grid dimensions for per-pixel processing of the image */
+    static void guess_size(KernelLaunchParams * params,
+                           const size_t imageWidth,
+                           const size_t imageHeight)
+    {
         const size_t blockWidth = 32;
         const size_t blockHeight = 32;
         const size_t threadsInBlock = blockWidth*blockHeight;
-        const size_t nPixels = this->width()*this->height();
+        const size_t nPixels = imageWidth*imageHeight;
         const size_t blocksNeeded = (nPixels/threadsInBlock)+1;
         size_t gridW, gridH;
         find_2d_box(blocksNeeded,&gridW,&gridH);
-        this->params_.setBlockSize(blockWidth,blockHeight);
-        this->params_.setGridSize(gridW,gridH);
+        params->setBlockSize(blockWidth,blockHeight);
+        params->setGridSize(gridW,gridH);
+    }
+
+    Image Image::copy(size_t x, size_t y, size_t w, size_t h) const{
+        x = std::min(x,this->width()-1);
+        y = std::min(y,this->height()-1);
+        w = std::min(w,this->width());
+        h = std::min(h,this->height());
+        Image result(w,h,this->format_);
+        KernelLaunchParams params;
+        guess_size(&params,result.width(),result.height());
+        params.push(result.data_);
+        params.push(result.header_);
+        params.push(this->data_);
+        params.push(this->header_);
+        params.push(&x);
+        params.push(&y);
+        params.push(&w);
+        params.push(&h);
+        if (cuwr::result_t r = cuwr::launch_kernel(priv::copy,params)){
+            throw Exception(r);
+        }
+        result.setAutoSync(this->autoSync_,this->autoSyncStream_);
+        if (this->autoSync_)
+            result.sync(this->autoSyncStream_);
+        return result;
+    }
+
+    void Image::load(const unsigned char *data){
+        this->data_.load(data);
+    }
+
+    void Image::recalculate_kernel_size(){
+        guess_size(&params_,this->width(),this->height());
     }
 
     void Image::prepare_launch(){
@@ -179,7 +226,7 @@ namespace cuwr{
         this->params_.push(&this->offset_);
     }
 
-    void Image::sync(stream_t stream){
+    void Image::sync(stream_t stream) const{
         if (result_t r = cuwr::cuStreamSynchronize(stream))
             throw Exception(r);
     }
@@ -206,6 +253,8 @@ namespace cuwr{
     }
 
     QImage Image::toQImage() const{
+        if (this->autoSync_)
+            this->sync(this->autoSyncStream_);
         const cuwr_image_kernel_data_t tmp = this->header_;
         QImage image((const uchar *)data_.dataPtr().hostp_,tmp.width,tmp.height,tmp.widthStep,toQFmt(this->format_));
         return image.copy();
@@ -213,10 +262,15 @@ namespace cuwr{
     Image Image::fromQImage(const QImage& image){
         Image result;
         if (image.isNull()==false){
-            const cuwr::image_format_t fmt = fromQFmt(image.format());
+            cuwr::image_format_t fmt = fromQFmt(image.format());
+            QImage source = image;
+            if (fmt == cuwr::Format_invalid){
+                source = image.convertToFormat(QImage::Format_RGB888);
+                fmt = fromQFmt(source.format());
+            }
             if (fmt != cuwr::Format_invalid){
-                result = Image(image.width(),image.height(),image.bytesPerLine(),fmt);
-                result.load(image.constBits());
+                result = Image(source.width(),source.height(),source.bytesPerLine(),fmt);
+                result.load(source.constBits());
             }
         }
         return result;

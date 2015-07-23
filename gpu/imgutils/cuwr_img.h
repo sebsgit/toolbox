@@ -18,6 +18,11 @@ namespace cuwr{
 	
 	class Image{
 	public:
+
+        static void maxImageSize(const cuwr::Gpu& gpu,
+                                 size_t * maxWidth,
+                                 size_t * maxHeight);
+
         Image();
 		Image(const size_t width, const size_t height, const image_format_t fmt);
         Image(const size_t width, const size_t height, const size_t widthStep, const image_format_t fmt);
@@ -30,13 +35,17 @@ namespace cuwr{
         size_t width() const;
         size_t height() const;
         cuwr::image_format_t format() const{ return this->format_; }
+        void setAutoSync(bool on=true, stream_t stream = 0);
         void swapRgb();
         void fill(const unsigned char r,
                   const unsigned char g,
                   const unsigned char b);
         void load(const unsigned char * data);
 
-        void sync(cuwr::stream_t stream = 0);
+        Image copy( size_t x,size_t y,size_t w,size_t h) const;
+
+        void sync(cuwr::stream_t stream = 0) const;
+
     #ifdef CUWR_WITH_QT
         QImage toQImage() const;
         static Image fromQImage(const QImage& image);
@@ -48,9 +57,11 @@ namespace cuwr{
 	private:
         cuwr::DeviceValue<cuwr_image_kernel_data_t, cuwr::DeviceMemPinnedAllocator> header_;
         cuwr::DeviceArray<unsigned char, cuwr::DeviceMemPinnedAllocator> data_;
-        image_format_t format_;
-        size_t offset_;
+        image_format_t format_ = Format_invalid;
+        size_t offset_ = 0;
         cuwr::KernelLaunchParams params_;
+        bool autoSync_ = false;
+        cuwr::stream_t autoSyncStream_ = 0;
 	};
 }
 

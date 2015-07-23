@@ -6,6 +6,10 @@ CONFIG += c++11
 
 DEFINES += CUWR_WITH_QT
 
+OBJECTS_DIR = build
+MOC_DIR = build
+UI_DIR = build
+
 QMAKE_CXXFLAGS += -Wall -Werror
 
 cuda.commands = nvcc -ptx -arch=sm_20 cuwr_imgutils.cu -o cuwr_imgutils.ptx
@@ -16,7 +20,6 @@ unix{
 	LIBS += -ldl
 }
 
-# Input
 SOURCES += main.cpp	\
 		   ../cuda_wraps/cuwrap.cpp	\
 		   cuwr_img.cpp
