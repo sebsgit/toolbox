@@ -31,20 +31,11 @@ namespace cuwr{
     }
 
     Image::Image()
-        :format_(cuwr::Format_invalid)
-    {
-        if (cuwr::result_t res = priv::init_module()){
-            throw Exception(res);
-        }
-    }
+        :Image(0,0,Format_invalid)
+    {}
     Image::Image(const size_t width, const size_t height, const image_format_t fmt)
         :Image(width,height,width*get_bpp(fmt),fmt)
-    {
-        if (cuwr::result_t res = priv::init_module()){
-            throw Exception(res);
-        }
-    }
-
+    {}
     Image::Image(const size_t width,
                  const size_t height,
                  const size_t widthStep,
