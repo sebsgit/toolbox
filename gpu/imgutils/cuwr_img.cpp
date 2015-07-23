@@ -30,19 +30,9 @@ namespace cuwr{
         return (fmt==Format_Gray8 ? 1 : (fmt==Format_Rgb24 ? 3 : 4));
     }
 
-    static cuwr_image_kernel_data_t empty_data(){
-        cuwr_image_kernel_data_t result;
-        result.bpp = 0;
-        result.height = 0;
-        result.width = 0;
-        result.widthStep = 0;
-        return result;
-    }
-
     Image::Image()
         :format_(cuwr::Format_invalid)
     {
-        this->header_ = empty_data();
         if (cuwr::result_t res = priv::init_module()){
             throw Exception(res);
         }
@@ -65,16 +55,12 @@ namespace cuwr{
             throw Exception(res);
         }
         if (width>0 && height>0 && fmt!=Format_invalid){
-            cuwr_image_kernel_data_t tmp = empty_data();
             this->data_.resize(widthStep*height);
-            tmp.bpp = get_bpp(fmt);
-            tmp.height = height;
-            tmp.width = width;
-            tmp.widthStep = widthStep;
-            this->header_ = tmp;
+            this->header_->bpp = get_bpp(fmt);
+            this->header_->height = height;
+            this->header_->width = width;
+            this->header_->widthStep = widthStep;
             this->recalculate_kernel_size();
-        } else{
-            this->header_ = empty_data();
         }
     }
     Image::Image(const Image &other)
@@ -117,12 +103,10 @@ namespace cuwr{
         return this->data_.size();
     }
     size_t Image::height() const{
-        const cuwr_image_kernel_data_t tmp = this->header_;
-        return tmp.height;
+        return this->header_->height;
     }
     size_t Image::width() const{
-        const cuwr_image_kernel_data_t tmp = this->header_;
-        return tmp.width;
+        return this->header_->width;
     }
     void Image::setAutoSync(bool on, cuwr::stream_t stream){
         this->autoSync_ = on;
@@ -255,8 +239,11 @@ namespace cuwr{
     QImage Image::toQImage() const{
         if (this->autoSync_)
             this->sync(this->autoSyncStream_);
-        const cuwr_image_kernel_data_t tmp = this->header_;
-        QImage image((const uchar *)data_.dataPtr().hostp_,tmp.width,tmp.height,tmp.widthStep,toQFmt(this->format_));
+        QImage image((const uchar *)data_.hostAddress(),
+                     header_->width,
+                     header_->height,
+                     header_->widthStep,
+                     toQFmt(this->format_));
         return image.copy();
     }
     Image Image::fromQImage(const QImage& image){

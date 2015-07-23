@@ -317,6 +317,7 @@ namespace cuwr{
         virtual ~DeviceValueBase(){
         }
         virtual cuwr::device_memptr_t * ptrAddress() const = 0;
+        virtual const void * hostAddress() const = 0;
         virtual size_t size() const = 0;
     };
 
@@ -347,6 +348,10 @@ namespace cuwr{
         }
         static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
             return (cuwr::device_memptr_t*)&src;
+        }
+        static const void * hostAddress(const pointer_type& /*src*/){
+            throw Exception(cuwr::CUDA_ERROR_NOT_MAPPED_);
+            return nullptr;
         }
     };
     class DeviceMemPinnedAllocator{
@@ -387,6 +392,9 @@ namespace cuwr{
         }
         static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
             return (cuwr::device_memptr_t*)&src.devp_;
+        }
+        static const void * hostAddress(const pointer_type& src){
+            return src.hostp_;
         }
     };
     typedef DeviceMemAllocator DefaultAllocator;
@@ -486,15 +494,21 @@ namespace cuwr{
             this->store(&tmp);
             return tmp;
 		}
+        T * operator -> (){
+            return (T*)hostAddress();
+        }
+        const T * operator -> () const{
+            return (const T*)hostAddress();
+        }
         device_memptr_t * ptrAddress() const override{
             return Alloc::deviceAddress(devPtr_);
 		}
+        const void * hostAddress() const{
+            return Alloc::hostAddress(devPtr_);
+        }
         size_t size() const override{
             return sizeof(T);
 		}
-        typename Alloc::pointer_type dataPtr() const{
-            return this->devPtr_;
-        }
 
 	private:
         typename Alloc::pointer_type devPtr_;
@@ -567,6 +581,9 @@ namespace cuwr{
         }
         device_memptr_t * ptrAddress() const override{
             return Alloc::deviceAddress(devPtr_);
+        }
+        const void * hostAddress() const{
+            return Alloc::hostAddress(devPtr_);
         }
         typename Alloc::pointer_type dataPtr() const{
             return this->devPtr_;
