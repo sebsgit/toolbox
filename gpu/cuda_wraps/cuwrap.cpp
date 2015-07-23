@@ -133,6 +133,7 @@ namespace cuwr{
     std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+    std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoD;
     /* stream management */
     std::function<result_t(stream_t,stream_callback_t,void*,unsigned int)> cuStreamAddCallback;
     std::function<result_t(stream_t*, unsigned int)> cuStreamCreate;
@@ -239,6 +240,7 @@ namespace cuwr{
                 CU_LD(cuMemcpy)
 				CU_LD(cuMemcpyHtoD)
 				CU_LD(cuMemcpyDtoH)
+                CU_LD(cuMemcpyDtoD)
 				CU_LD(cuMemFree)
                 CU_LD(cuMemFreeHost)
 

@@ -246,6 +246,7 @@ namespace cuwr{
     extern std::function<result_t(device_memptr_t,device_memptr_t,size_t)> cuMemcpy;
 	extern std::function<result_t(device_memptr_t, const void *, size_t)> cuMemcpyHtoD;
 	extern std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoH;
+    extern std::function<result_t(void *, device_memptr_t, size_t)> cuMemcpyDtoD;
 
 	/* stream management */
     typedef void (* stream_callback_t )( stream_t, result_t, void*);
@@ -341,6 +342,9 @@ namespace cuwr{
         static cuwr::result_t copyToHost(void * dest, pointer_type src, const size_t nbytes){
             return cuwr::cuMemcpyDtoH(dest,src,nbytes);
         }
+        static cuwr::result_t copyDeviceToDevice(pointer_type dest, const pointer_type& src, const size_t nbytes){
+            return cuwr::cuMemcpyDtoD(dest,src,nbytes);
+        }
         static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
             return (cuwr::device_memptr_t*)&src;
         }
@@ -378,6 +382,9 @@ namespace cuwr{
                 memcpy(dest,src.hostp_,nbytes);
             return err;
         }
+        static cuwr::result_t copyDeviceToDevice(pointer_type dest, const pointer_type& src, const size_t nbytes){
+            return memcpy(dest.hostp_,src.hostp_,nbytes) != 0 ? cuwr::CUDA_SUCCESS_ : cuwr::CUDA_ERROR_ILLEGAL_ADDRESS_;
+        }
         static cuwr::device_memptr_t * deviceAddress(const pointer_type & src){
             return (cuwr::device_memptr_t*)&src.devp_;
         }
@@ -407,12 +414,40 @@ namespace cuwr{
             :DeviceValue((const void*)&value)
         {
         }
+        DeviceValue(const DeviceValue& other){
+            Alloc::zero(&devPtr_);
+            cuwr::result_t err = Alloc::alloc(&devPtr_, sizeof(T));
+            if( err == 0){
+                err = Alloc::copyDeviceToDevice(devPtr_,other.devPtr_,sizeof(T));
+            }
+            if (err != 0){
+                throw cuwr::Exception(err);
+            }
+        }
         DeviceValue(DeviceValue&& other)
             :devPtr_(other.devPtr_)
         {
             Alloc::zero(&other.devPtr_);
         }
-
+        DeviceValue& operator = (DeviceValue&& other){
+            devPtr_ = other.devPtr_;
+            Alloc::zero(&other.devPtr_);
+            return *this;
+        }
+        DeviceValue& operator = (const DeviceValue& other){
+            if (Alloc::isNull(devPtr_)==false){
+                Alloc::free(devPtr_);
+                Alloc::zero(&devPtr_);
+            }
+            cuwr::result_t err = Alloc::alloc(&devPtr_, sizeof(T));
+            if( err == 0){
+                err = Alloc::copyDeviceToDevice(devPtr_,other.devPtr_,sizeof(T));
+            }
+            if (err != 0){
+                throw cuwr::Exception(err);
+            }
+            return *this;
+        }
         ~DeviceValue(){
             if (Alloc::isNull(devPtr_)==false)
                 Alloc::free(devPtr_);
@@ -457,6 +492,10 @@ namespace cuwr{
         size_t size() const override{
             return sizeof(T);
 		}
+        typename Alloc::pointer_type dataPtr(){
+            return this->devPtr_;
+        }
+
 	private:
         typename Alloc::pointer_type devPtr_;
 	};
@@ -472,6 +511,39 @@ namespace cuwr{
             if (initSize > 0)
                 this->resize(initSize);
         }
+        DeviceArray(DeviceArray&& other){
+            devPtr_ = other.devPtr_;
+            count_ = other.count_;
+            Alloc::zero(&other.devPtr_);
+            other.count_ = 0;
+        }
+        DeviceArray& operator=(DeviceArray&& other){
+            devPtr_ = other.devPtr_;
+            count_ = other.count_;
+            Alloc::zero(&other.devPtr_);
+            other.count_ = 0;
+            return *this;
+        }
+        DeviceArray(const DeviceArray& other)
+        {
+            Alloc::zero(&devPtr_);
+            this->resize(other.count_);
+            Alloc::copyDeviceToDevice(devPtr_,other.devPtr_,sizeof(T)*count_);
+        }
+        DeviceArray& operator = (const DeviceArray& other)
+        {
+            Alloc::zero(&devPtr_);
+            this->resize(other.count_);
+            Alloc::copyDeviceToDevice(devPtr_,other.devPtr_,sizeof(T)*count_);
+            return *this;
+        }
+
+        ~DeviceArray(){
+            if (Alloc::isNull(devPtr_)==false){
+                Alloc::free(devPtr_);
+            }
+        }
+
         cuwr::result_t resize(const size_t count){
             if (Alloc::isNull(devPtr_)==false){
                 Alloc::free(devPtr_);
@@ -486,7 +558,7 @@ namespace cuwr{
         cuwr::result_t load(const void * value, const size_t count = 0){
             return Alloc::copyToDevice(devPtr_,value,sizeof(T)*(count > 0 ? count : this->count_));
         }
-        cuwr::result_t store(void * out, const size_t count = 0){
+        cuwr::result_t store(void * out, const size_t count = 0) const{
             return Alloc::copyToHost(out,devPtr_,sizeof(T)*(count > 0 ? count : this->count_));
         }
 
@@ -495,6 +567,9 @@ namespace cuwr{
         }
         device_memptr_t * ptrAddress() const override{
             return Alloc::deviceAddress(devPtr_);
+        }
+        typename Alloc::pointer_type dataPtr() const{
+            return this->devPtr_;
         }
 
     private:
@@ -535,6 +610,11 @@ namespace cuwr{
 			gridDimX_ = gridDimY_ = gridDimZ_ = 1;
 			blockDimX_ = blockDimY_ = blockDimZ_ = 1;
 		}
+        void clearParameters(){
+            this->params_.clear();
+            this->extra_.clear();
+        }
+
     private:
 		unsigned int gridDimX_=1, gridDimY_=1, gridDimZ_=1;
 		unsigned int blockDimX_=1, blockDimY_=1, blockDimZ_=1;
