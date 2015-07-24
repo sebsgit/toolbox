@@ -16,6 +16,10 @@ cuda.commands = nvcc -ptx -arch=sm_20 cuwr_imgutils.cu -o cuwr_imgutils.ptx
 cuda.target = cuda
 QMAKE_EXTRA_TARGETS += cuda
 
+cudamotion.commands = nvcc -ptx -arch=sm_20 cuwr_motion.cu -o cuwr_motion.ptx
+cudamotion.target = cudamotion
+QMAKE_EXTRA_TARGETS += cudamotion
+
 unix{
 	LIBS += -ldl
 }
@@ -26,7 +30,9 @@ SOURCES += main.cpp	\
 
 HEADERS += \
     cuwr_img.h \
-    cuwr_imgdata_priv.h
+    cuwr_imgdata_priv.h \
+    cuwr_motion_estimator.h
 
 DISTFILES += \
-    cuwr_imgutils.cu
+    cuwr_imgutils.cu \
+    cuwr_motion.cu

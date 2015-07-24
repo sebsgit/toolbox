@@ -99,6 +99,9 @@ namespace cuwr{
     size_t Image::width() const{
         return this->header_->width;
     }
+    cuwr_dim2 Image::size() const{
+        return cuwr_dim2(width(),height());
+    }
     void Image::setAutoSync(bool on, cuwr::stream_t stream){
         this->autoSync_ = on;
         this->autoSyncStream_ = stream;
@@ -124,42 +127,6 @@ namespace cuwr{
         }
     }
 
-    /*
-     finds the smallest 2d rectangle with area >= n_elems
-     both width and height of the rectangle must be powers of 2
-     */
-    static void find_2d_box(const size_t n_elems, size_t * w, size_t * h){
-        size_t p2 = 1;
-        while (p2*p2 < n_elems){
-            p2 *= 2;
-        }
-        *w = p2;
-        size_t p2_h = p2/2;
-        while (p2*p2_h > n_elems){
-            p2_h /= 2;
-        }
-        if (p2_h == 0)
-            p2_h = 1;
-        *h = (p2_h*p2 > n_elems) ? p2_h :p2_h*2;
-    }
-
-
-    /* guess best grid dimensions for per-pixel processing of the image */
-    static void guess_size(KernelLaunchParams * params,
-                           const size_t imageWidth,
-                           const size_t imageHeight)
-    {
-        const size_t blockWidth = 32;
-        const size_t blockHeight = 32;
-        const size_t threadsInBlock = blockWidth*blockHeight;
-        const size_t nPixels = imageWidth*imageHeight;
-        const size_t blocksNeeded = (nPixels/threadsInBlock)+1;
-        size_t gridW, gridH;
-        find_2d_box(blocksNeeded,&gridW,&gridH);
-        params->setBlockSize(blockWidth,blockHeight);
-        params->setGridSize(gridW,gridH);
-    }
-
     Image Image::copy(size_t x, size_t y, size_t w, size_t h) const{
         x = std::min(x,this->width()-1);
         y = std::min(y,this->height()-1);
@@ -167,7 +134,7 @@ namespace cuwr{
         h = std::min(h,this->height());
         Image result(w,h,this->format_);
         KernelLaunchParams params;
-        guess_size(&params,result.width(),result.height());
+        params.autodetect(result.width()*result.height());
         params.push(result.data_);
         params.push(result.header_);
         params.push(this->data_);
@@ -190,7 +157,7 @@ namespace cuwr{
     }
 
     void Image::recalculate_kernel_size(){
-        guess_size(&params_,this->width(),this->height());
+        params_.autodetect(this->width()*this->height());
     }
 
     void Image::prepare_launch(){
@@ -204,6 +171,13 @@ namespace cuwr{
     void Image::sync(stream_t stream) const{
         if (result_t r = cuwr::cuStreamSynchronize(stream))
             throw Exception(r);
+    }
+
+    void Image::pushData(KernelLaunchParams &params) const{
+        params.push(this->data_);
+    }
+    void Image::pushHeader(KernelLaunchParams &params) const{
+        params.push(this->header_);
     }
 
 #ifdef CUWR_WITH_QT

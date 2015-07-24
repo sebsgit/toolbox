@@ -579,6 +579,9 @@ namespace cuwr{
         size_t size() const override{
             return this->count_*sizeof(T);
         }
+        size_t count() const{
+            return this->count_;
+        }
         device_memptr_t * ptrAddress() const override{
             return Alloc::deviceAddress(devPtr_);
         }
@@ -631,6 +634,40 @@ namespace cuwr{
             params_.push_back((void *)ptr);
         }
 		
+        /*
+         finds the smallest 2d rectangle with area >= n_elems
+         both width and height of the rectangle must be powers of 2
+         */
+        static void find_2d_box(const size_t n_elems, size_t * w, size_t * h){
+            size_t p2 = 1;
+            while (p2*p2 < n_elems){
+                p2 *= 2;
+            }
+            *w = p2;
+            size_t p2_h = p2/2;
+            while (p2*p2_h > n_elems){
+                p2_h /= 2;
+            }
+            if (p2_h == 0)
+                p2_h = 1;
+            *h = (p2_h*p2 > n_elems) ? p2_h :p2_h*2;
+        }
+
+        /* autodetect launch parameters for per-element processing
+           - one thread processes one element
+           //TODO
+           */
+        void autodetect(const size_t count){
+            const size_t blockWidth = 32;
+            const size_t blockHeight = 32;
+            const size_t threadsInBlock = blockWidth*blockHeight;
+            const size_t blocksNeeded = (count/threadsInBlock)+1;
+            size_t gridW, gridH;
+            find_2d_box(blocksNeeded,&gridW,&gridH);
+            this->setBlockSize(blockWidth,blockHeight);
+            this->setGridSize(gridW,gridH);
+        }
+
 		void clear(){
 			params_.clear();
 			extra_.clear();

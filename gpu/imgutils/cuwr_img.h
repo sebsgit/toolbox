@@ -34,6 +34,7 @@ namespace cuwr{
         size_t byteCount() const;
         size_t width() const;
         size_t height() const;
+        cuwr_dim2 size() const;
         cuwr::image_format_t format() const{ return this->format_; }
         void setAutoSync(bool on=true, stream_t stream = 0);
         void swapRgb();
@@ -50,6 +51,9 @@ namespace cuwr{
         QImage toQImage() const;
         static Image fromQImage(const QImage& image);
     #endif
+
+        void pushHeader(cuwr::KernelLaunchParams& params) const;
+        void pushData(cuwr::KernelLaunchParams& params) const;
 
     private:
         void recalculate_kernel_size();
