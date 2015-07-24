@@ -4,7 +4,7 @@
 #include "cuwr_motion_estimator.h"
 #include <QDebug>
 
-int main(){
+int main(int argc, char ** argv){
 	if (cuwr::init() != 0){
 		std::cout << "cant init cuda!\n";
 		exit(0);
@@ -25,19 +25,36 @@ int main(){
     image3.save("part.jpg");
 
     {
-        cuwr::MotionEstimator motion;
+        QImage frame1("frame1.png");
+        QImage frame2("frame2.png");
+
+        if (argc > 2){
+            frame1.load(argv[1]);
+            frame2.load(argv[2]);
+        }
+
+        const int searchWindow = 10;
+        const int blockSize = 32;
+        cuwr::MotionEstimator motion(blockSize,searchWindow);
         cimg = cuwr::Image(64,64,cuwr::Format_Rgb24);
-        cuwr::VectorField vec = motion.estimateMotionField(cimg,cimg);
-        std::vector< cuwr_vec2 > field = vec.to_vector();
-        size_t i=0;
-        for (const auto& v : field){
-            std::cout << "[" << v.x <<","<<v.y<<"] ";
-            ++i;
-            if (i == vec.width()){
-                std::cout << "\n";
-                i=0;
+        cimg.setAutoSync();
+        cuwr::Image cimg2;
+        cimg = cuwr::Image::fromQImage(frame1);
+        cimg2 = cuwr::Image::fromQImage(frame2);
+
+        cuwr::VectorField vec = motion.estimateMotionField(cimg,cimg2);
+        const float maxVecLength = sqrt(2.0f*searchWindow*searchWindow);
+        QImage vecFieldImage(vec.width(),vec.height(),QImage::Format_RGB888);
+        for (size_t i = 0 ; i < vec.width() ; ++i ){
+            for (size_t j = 0 ; j < vec.height() ; ++j ){
+                const cuwr_vec2 v = vec.get(j,i);
+                const float len = sqrt(v.x*v.x + v.y*v.y);
+                const int color = (255*len)/maxVecLength;
+                vecFieldImage.setPixel(i,j,qRgb(color,0,0));
             }
         }
+        vecFieldImage.scaledToHeight(cimg.height()).save("motion.jpg");
+
     }
 
     delete gpu;

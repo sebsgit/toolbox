@@ -36,6 +36,7 @@ namespace cuwr{
         size_t height() const;
         cuwr_dim2 size() const;
         cuwr::image_format_t format() const{ return this->format_; }
+        size_t bytesPerPixel() const;
         void setAutoSync(bool on=true, stream_t stream = 0);
         void swapRgb();
         void fill(const unsigned char r,

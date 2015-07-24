@@ -17,9 +17,9 @@ struct cuwr_image_kernel_data_t{
 };
 
 struct cuwr_dim2{
-    size_t x;
-    size_t y;
-    cuwr_dim2(size_t ax=0, size_t ay=0)
+    int x;
+    int y;
+    cuwr_dim2(int ax=0, int ay=0)
         :x(ax)
         ,y(ay)
     {}
@@ -29,17 +29,6 @@ struct cuwr_dim2{
     bool operator != (const cuwr_dim2& other) const{
         return !(*this==other);
     }
-};
-
-struct cuwr_dim3{
-    size_t x;
-    size_t y;
-    size_t z;
-    cuwr_dim3(size_t ax=0, size_t ay=0, size_t az=0)
-        :x(ax)
-        ,y(ay)
-        ,z(az)
-    {}
 };
 
 struct cuwr_vec2{

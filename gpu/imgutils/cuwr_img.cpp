@@ -102,6 +102,9 @@ namespace cuwr{
     cuwr_dim2 Image::size() const{
         return cuwr_dim2(width(),height());
     }
+    size_t Image::bytesPerPixel() const{
+        return get_bpp(this->format_);
+    }
     void Image::setAutoSync(bool on, cuwr::stream_t stream){
         this->autoSync_ = on;
         this->autoSyncStream_ = stream;
