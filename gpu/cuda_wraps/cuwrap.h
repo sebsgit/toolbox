@@ -643,7 +643,7 @@ namespace cuwr{
         void setStream(cuwr::stream_t stream){
             this->stream_ = stream;
         }
-        void setSharedMemoryCount(size_t numBytes){
+        void setSharedMemoryCount(unsigned int numBytes){
             this->sharedMemBytes_ = numBytes;
         }
         void push(const DeviceValueBase& ptr){
@@ -684,8 +684,8 @@ namespace cuwr{
             const size_t blocksNeeded = (count/threadsInBlock)+1;
             size_t gridW, gridH;
             find_2d_box(blocksNeeded,&gridW,&gridH);
-            this->setBlockSize(blockWidth,blockHeight);
-            this->setGridSize(gridW,gridH);
+            this->setBlockSize((unsigned int)blockWidth,(unsigned int)blockHeight);
+			this->setGridSize((unsigned int)gridW, (unsigned int)gridH);
         }
         /* autodetect launch grid size that covers the [width x height] rectangle */
         void autodetect(const std::pair<size_t,size_t>& size, const size_t blockSize=32){
@@ -693,8 +693,8 @@ namespace cuwr{
             const size_t blockHeight = blockSize;
             const size_t blocksNeededW = (size.first/blockWidth)+1;
             const size_t blocksNeededH = (size.second/blockHeight)+1;
-            this->setBlockSize(blockWidth,blockHeight);
-            this->setGridSize(blocksNeededW,blocksNeededH);
+			this->setBlockSize((unsigned int)blockWidth, (unsigned int)blockHeight);
+			this->setGridSize((unsigned int)blocksNeededW, (unsigned int)blocksNeededH);
         }
 
 		void clear(){
