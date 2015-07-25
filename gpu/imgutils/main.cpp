@@ -3,6 +3,7 @@
 #include "cuwr_img.h"
 #include "cuwr_motion_estimator.h"
 #include <QDebug>
+#include <QTime>
 
 int main(int argc, char ** argv){
 	if (cuwr::init() != 0){
@@ -35,7 +36,7 @@ int main(int argc, char ** argv){
             frame2 = frame2.convertToFormat(QImage::Format_RGB888);
         }
 
-        const int searchWindow = 10;
+        const int searchWindow = 7;
         const int blockSize = 16;
         cuwr::MotionEstimator motion(blockSize,searchWindow);
         cimg = cuwr::Image(64,64,cuwr::Format_Rgb24);
@@ -44,14 +45,15 @@ int main(int argc, char ** argv){
         cimg = cuwr::Image::fromQImage(frame1);
         cimg2 = cuwr::Image::fromQImage(frame2);
 
+        QTime t; t.start();
         cuwr::VectorField vec = motion.estimateMotionField(cimg,cimg2);
+        qDebug() << t.elapsed();
         const float maxVecLength = sqrt(2.0f*searchWindow*searchWindow);
         QImage vecFieldImage(vec.width(),vec.height(),QImage::Format_RGB888);
         for (size_t i = 0 ; i < vec.width() ; ++i ){
             for (size_t j = 0 ; j < vec.height() ; ++j ){
                 const cuwr_vec2 v = vec.get(j,i);
-                const float len = sqrt(v.x*v.x + v.y*v.y);
-                const int color = (255*len)/maxVecLength;
+                const int color = (255*v.length())/maxVecLength;
                 vecFieldImage.setPixel(i,j,qRgb(color,0,0));
             }
         }

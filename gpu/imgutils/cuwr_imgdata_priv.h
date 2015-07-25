@@ -1,6 +1,7 @@
 #ifndef CUWR_IMGDATA_PRIV_H
 #define CUWR_IMGDATA_PRIV_H
 
+#include <cmath>
 #include <limits>
 
 struct cuwr_image_kernel_data_t{
@@ -31,6 +32,12 @@ struct cuwr_dim2{
     bool operator != (const cuwr_dim2& other) const{
         return !(*this==other);
     }
+#ifndef __NVCC__
+    template <typename T>
+    operator std::pair<T,T>() const{
+        return std::make_pair( T(x), T(y) );
+    }
+#endif
 };
 
 struct cuwr_vec2{
@@ -40,6 +47,9 @@ struct cuwr_vec2{
         :x(ax)
         ,y(ay)
     {}
+    float length() const{
+        return sqrt(x*x+y*y);
+    }
 };
 
 struct cuwr_mad_result_t{

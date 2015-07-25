@@ -87,8 +87,8 @@ namespace cuwr{
                     params.push(off_dev);
                     params.push(perBlockResult);
 
-                    for (int i=-searchWindow_+1 ; i<searchWindow_ ; ++i){
-                        for (int j=-searchWindow_+1 ; j<searchWindow_ ; ++j){
+                    for (int i=-searchWindow_ ; i<=searchWindow_ ; ++i){
+                        for (int j=-searchWindow_ ; j<=searchWindow_ ; ++j){
                             off_dev = cuwr_dim2(i,j);
                             if (cuwr::result_t r = cuwr::launch_kernel(this->calc_mad,params)){
                                 throw Exception(r);

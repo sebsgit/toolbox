@@ -22,8 +22,6 @@
 #include <sstream>
 #include <cstring>
 
-#include "cuwr_imgdata_priv.h"
-
 #define CUWR_NOCPY(K) private:						\
                         K (const K&) = delete;      \
                         K(K &&) = delete;           \
@@ -690,11 +688,11 @@ namespace cuwr{
             this->setGridSize(gridW,gridH);
         }
         /* autodetect launch grid size that covers the [width x height] rectangle */
-        void autodetect(const cuwr_dim2& size, const size_t blockSize=32){
+        void autodetect(const std::pair<size_t,size_t>& size, const size_t blockSize=32){
             const size_t blockWidth = blockSize;
             const size_t blockHeight = blockSize;
-            const size_t blocksNeededW = (size.x/blockWidth)+1;
-            const size_t blocksNeededH = (size.y/blockHeight)+1;
+            const size_t blocksNeededW = (size.first/blockWidth)+1;
+            const size_t blocksNeededH = (size.second/blockHeight)+1;
             this->setBlockSize(blockWidth,blockHeight);
             this->setGridSize(blocksNeededW,blocksNeededH);
         }

@@ -12,11 +12,11 @@ UI_DIR = build
 
 QMAKE_CXXFLAGS += -Wall -Werror
 
-cuda.commands = nvcc -ptx -arch=sm_20 cuwr_imgutils.cu -o cuwr_imgutils.ptx
+cuda.commands = nvcc -ptx -arch=sm_20 -O2 cuwr_imgutils.cu -o cuwr_imgutils.ptx
 cuda.target = cuda
 QMAKE_EXTRA_TARGETS += cuda
 
-cudamotion.commands = nvcc -ptx -arch=sm_20 cuwr_motion.cu -o cuwr_motion.ptx
+cudamotion.commands = nvcc -ptx -arch=sm_20 -O2 cuwr_motion.cu -o cuwr_motion.ptx
 cudamotion.target = cudamotion
 QMAKE_EXTRA_TARGETS += cudamotion
 
