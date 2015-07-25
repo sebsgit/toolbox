@@ -40,6 +40,36 @@ private:
     size_t pixelId_;
 };
 
+__device__ float MAD_helper(const dim3& threadIdx,
+                            const dim3& blockIdx,
+                            const dim3& blockDim,
+                            const dim3& gridDim,
+                            const uchar * image1,
+                            const cuwr_image_kernel_data_t * header1,
+                            const uchar * image2,
+                            const cuwr_image_kernel_data_t * header2,
+                            const cuwr_dim2 * offsets)
+            {
+                float result = 255.0f*header1->bpp;
+                const CoordCalc calc(threadIdx,blockIdx,blockDim,gridDim);
+                int row = threadIdx.y + blockIdx.y*blockDim.y;
+                int col= threadIdx.x + blockIdx.x*blockDim.x;
+                if (row < header1->height && col < header1->width){
+                    const uchar * pxIn1 = image1 + calc.dataOffset(row,col,header1);
+                    row -= offsets->y;
+                    col -= offsets->x;
+                    if (row >= 0 && col >=0 && row < header2->height && col < header2->width){
+                        const uchar * pxIn2 = image2 + calc.dataOffset(row,col,header2);
+                        result = abs((float)pxIn1[0]-(float)pxIn2[0]);
+                        if (header1->bpp > 1){
+                            result += abs((float)pxIn1[1]-(float)pxIn2[1]);
+                            result += abs((float)pxIn1[2]-(float)pxIn2[2]);
+                        }
+                    }
+                }
+                return result;
+            }
+
 extern "C"{
 
 /* calculate MAD of two images (mean absolute difference) per block
@@ -50,39 +80,24 @@ extern "C"{
 */
 __global__ void cuwr_MAD(const uchar * image1, const cuwr_image_kernel_data_t * header1,
                          const uchar * image2, const cuwr_image_kernel_data_t * header2,
-                         const cuwr_dim2 * offsets, float * output)
+                         const cuwr_dim2 * offsets,
+                         cuwr_mad_result_t * output)
             {
                 __shared__ float block_mad_value;
-                const float badValue = 999999.0f;
-                float thisThreadMad = badValue;
-                const CoordCalc calc(threadIdx,blockIdx,blockDim,gridDim);
-                int row = threadIdx.y + blockIdx.y*blockDim.y;
-                int col= threadIdx.x + blockIdx.x*blockDim.x;
-                if (row < header1->height && col < header1->width){
-                    const uchar * pxIn1 = image1 + calc.dataOffset(row,col,header1);
-                    row -= offsets->y;
-                    col -= offsets->x;
-                    if (row >= 0 && col >=0 && row < header2->height && col < header2->width){
-                        const uchar * pxIn2 = image2 + calc.dataOffset(row,col,header2);
-                        thisThreadMad = abs((float)pxIn1[0]-(float)pxIn2[0]);
-                        if (header1->bpp > 1){
-                            thisThreadMad += abs((float)pxIn1[1]-(float)pxIn2[1]);
-                            thisThreadMad += abs((float)pxIn1[2]-(float)pxIn2[2]);
-                        }
-                    } else{
-                        thisThreadMad = 255.0f;
-                        if (header1->bpp > 1){
-                            thisThreadMad += 255.0f;
-                            thisThreadMad += 255.0f;
-                        }
-                    }
-                }
-                if (thisThreadMad > 0.0f && thisThreadMad < badValue)
+                const float thisThreadMad = MAD_helper(threadIdx,blockIdx,blockDim,gridDim,
+                                                 image1,header1,
+                                                 image2,header2,
+                                                 offsets);
+                if (thisThreadMad > 0.0f)
                     atomicAdd(&block_mad_value,thisThreadMad);
                 __syncthreads();
                 if (threadIdx.x==0 && threadIdx.y==0){
                     block_mad_value /= blockDim.x*blockDim.y;
-                    output[ blockIdx.x + blockIdx.y*gridDim.x ] = block_mad_value;
+                    cuwr_mad_result_t * out = output + blockIdx.x + blockIdx.y*gridDim.x;
+                    if (out->madValue > block_mad_value){
+                        out->madValue = block_mad_value;
+                        out->offset = *offsets;
+                    }
                 }
             }
 

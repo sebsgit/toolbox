@@ -31,10 +31,12 @@ int main(int argc, char ** argv){
         if (argc > 2){
             frame1.load(argv[1]);
             frame2.load(argv[2]);
+            frame1 = frame1.convertToFormat(QImage::Format_RGB888);
+            frame2 = frame2.convertToFormat(QImage::Format_RGB888);
         }
 
         const int searchWindow = 10;
-        const int blockSize = 32;
+        const int blockSize = 16;
         cuwr::MotionEstimator motion(blockSize,searchWindow);
         cimg = cuwr::Image(64,64,cuwr::Format_Rgb24);
         cimg.setAutoSync();

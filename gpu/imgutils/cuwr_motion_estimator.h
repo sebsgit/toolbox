@@ -2,6 +2,7 @@
 #define CUWR_MOTION_ESTIMATOR_H
 
 #include "cuwr_img.h"
+#include "cuwr_imgdata_priv.h"
 #include <vector>
 
 namespace cuwr{
@@ -68,22 +69,19 @@ namespace cuwr{
         VectorField estimateMotionField(const cuwr::Image& image1,
                                         const cuwr::Image& image2)
         {
-
-            struct mad_result_t{
-                float madValue=std::numeric_limits<float>::max();
-                cuwr_dim2 offset;
-            };
-
             VectorField result;
             if (image1.size() == image2.size()){
                 result.resize( ((image1.width()+blockSize_)-1)/blockSize_,
                                ((image1.height()+blockSize_)-1)/blockSize_ );
                 if (result.isEmpty()==false){
-                    std::vector<mad_result_t> perBlockResult;
+                    cuwr::DeviceArray<cuwr_mad_result_t, cuwr::DeviceMemPinnedAllocator> perBlockResult;
+
                     perBlockResult.resize(result.count());
+                    std::vector<cuwr_mad_result_t> toInit(result.count());
+                    perBlockResult.load(&toInit[0]);
+                    toInit.clear();
+
                     cuwr::DeviceValue<cuwr_dim2> off_dev = cuwr_dim2(0,0);
-                    cuwr::DeviceArray<float, cuwr::DeviceMemPinnedAllocator> mads;
-                    mads.resize(result.count());
                     cuwr::KernelLaunchParams params;
                     params.autodetect(image1.size(),blockSize_);
                     params.setSharedMemoryCount(sizeof(float));
@@ -92,7 +90,7 @@ namespace cuwr{
                     image2.pushData(params);
                     image2.pushHeader(params);
                     params.push(off_dev);
-                    params.push(mads);
+                    params.push(perBlockResult);
 
                     for (int i=-searchWindow_+1 ; i<searchWindow_ ; ++i){
                         for (int j=-searchWindow_+1 ; j<searchWindow_ ; ++j){
@@ -101,22 +99,15 @@ namespace cuwr{
                                 throw Exception(r);
                             }
                             cuwr::cuStreamSynchronize(0);
-                            //TODO: move this to kernel
-                            float * mad_values = (float*)mads.hostAddress();
-                            for (size_t k=0 ; k<mads.count() ; ++k){
-                                if (mad_values[k] < perBlockResult[k].madValue){
-                                    perBlockResult[k].madValue = mad_values[k];
-                                    perBlockResult[k].offset = cuwr_dim2(i,j);
-                                }
-                            }
                         }
                     }
-                    for (size_t i=0 ; i<perBlockResult.size() ; ++i){
-                        const mad_result_t b = perBlockResult[i];
-                        if (b.madValue > 0.0){
-                            result.set(i,cuwr_vec2(b.offset.x,b.offset.y));
-                      //     std::cout << "block moved: " << b.blockIndex << " " << b.madValue << ", "
-                       //           << b.offset.x << "x" << b.offset.y << "\n";
+                    const cuwr_mad_result_t * ptr = (const cuwr_mad_result_t*)perBlockResult.hostAddress();
+                    const float maxMadValue = image1.bytesPerPixel()*255.0f;
+                    for (size_t i=0 ; i<perBlockResult.count() ; ++i){
+                        if (ptr[i].madValue > 0.0 && ptr[i].madValue < maxMadValue && (ptr[i].offset.x || ptr[i].offset.y)){
+                            result.set(i,cuwr_vec2(ptr[i].offset.x,ptr[i].offset.y));
+                         //  std::cout << "block moved: " << i << " " << ptr[i].madValue << ", "
+                           //       << ptr[i].offset.x << "x" << ptr[i].offset.y << "\n";
                         }
                     }
                 }

@@ -1,6 +1,8 @@
 #ifndef CUWR_IMGDATA_PRIV_H
 #define CUWR_IMGDATA_PRIV_H
 
+#include <limits>
+
 struct cuwr_image_kernel_data_t{
     size_t width;           /* width in pixels */
     size_t height;          /* height in pixels */
@@ -38,6 +40,17 @@ struct cuwr_vec2{
         :x(ax)
         ,y(ay)
     {}
+};
+
+struct cuwr_mad_result_t{
+    float madValue;
+    cuwr_dim2 offset;
+
+    cuwr_mad_result_t()
+        :madValue(std::numeric_limits<float>::max())
+    {
+
+    }
 };
 
 #endif
