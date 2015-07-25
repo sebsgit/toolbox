@@ -58,7 +58,7 @@ int main(int argc, char ** argv){
             }
         }
         vecFieldImage.scaledToHeight(cimg.height()).save("motion.jpg");
-
+        vec.toImage().save("field.jpg");
     }
 
     delete gpu;

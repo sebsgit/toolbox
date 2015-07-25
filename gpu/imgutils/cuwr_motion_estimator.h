@@ -5,6 +5,11 @@
 #include "cuwr_imgdata_priv.h"
 #include <vector>
 
+#ifdef CUWR_WITH_QT
+#include <QImage>
+#include <QPainter>
+#endif
+
 namespace cuwr{
     class VectorField{
     public:
@@ -40,6 +45,31 @@ namespace cuwr{
         cuwr_vec2 get(size_t row, size_t col) const{
             return this->data_[ col + row*size_.x ];
         }
+
+    #ifdef CUWR_WITH_QT
+        QImage toImage(const int blockSize=64) const{
+            float maxLen = 0.0f;
+            for (const auto & v : data_){
+                const float len = v.length();
+                if (len > maxLen)
+                    maxLen = len;
+            }
+            QImage result(this->width()*blockSize,this->height()*blockSize,QImage::Format_RGB888);
+            result.fill(Qt::white);
+            QPainter painter(&result);
+            painter.setPen(QPen(Qt::red,10));
+            for (size_t r=0 ;r<this->height() ; ++r ){
+                for (size_t c=0 ;c<this->width() ; ++c){
+                    const cuwr_vec2 v = this->get(r,c);
+                    QLineF line(0,0,v.x,v.y);
+                    line.setLength( (blockSize/2)*(v.length()/maxLen) );
+                    line.translate(QPointF( c*blockSize+blockSize/2, r*blockSize+blockSize/2 ));
+                    painter.drawLine(line);
+                }
+            }
+            return result;
+        }
+    #endif
 
     private:
         std::vector<cuwr_vec2> data_;
