@@ -75,12 +75,7 @@ namespace cuwr{
                                ((image1.height()+blockSize_)-1)/blockSize_ );
                 if (result.isEmpty()==false){
                     cuwr::DeviceArray<cuwr_mad_result_t, cuwr::DeviceMemPinnedAllocator> perBlockResult;
-
-                    perBlockResult.resize(result.count());
-                    std::vector<cuwr_mad_result_t> toInit(result.count());
-                    perBlockResult.load(&toInit[0]);
-                    toInit.clear();
-
+                    perBlockResult.resize(result.count(), cuwr_mad_result_t());
                     cuwr::DeviceValue<cuwr_dim2> off_dev = cuwr_dim2(0,0);
                     cuwr::KernelLaunchParams params;
                     params.autodetect(image1.size(),blockSize_);

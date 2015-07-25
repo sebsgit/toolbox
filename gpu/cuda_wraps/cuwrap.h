@@ -571,11 +571,22 @@ namespace cuwr{
             }
             return errCode;
         }
+        cuwr::result_t resize(const size_t count, const T& initValue){
+            const cuwr::result_t errCode = this->resize(count);
+            if (errCode==0){
+                this->init(initValue);
+            }
+            return errCode;
+        }
         cuwr::result_t load(const void * value, const size_t count = 0){
             return Alloc::copyToDevice(devPtr_,value,sizeof(T)*(count > 0 ? count : this->count_));
         }
         cuwr::result_t store(void * out, const size_t count = 0) const{
             return Alloc::copyToHost(out,devPtr_,sizeof(T)*(count > 0 ? count : this->count_));
+        }
+        void init(const T& value){
+            const std::vector<T> buffer(this->count(),value);
+            this->load(&buffer[0]);
         }
 
         size_t size() const override{
