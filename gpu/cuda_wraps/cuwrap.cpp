@@ -22,6 +22,7 @@ namespace cuwr{
 		
 		static std::set<std::string> libcu_searchpath;
 		static dplibhandle_priv_t_ libcu_handle;
+		static cuwr::Gpu * libcu_default_gpu = 0;
 		
         inline void * dp_load(const char * path){
 			#ifdef _WIN32
@@ -265,7 +266,12 @@ namespace cuwr{
                 CU_LD(cuEventRecord)
                 CU_LD(cuEventSynchronize)
 				#undef CU_LD
-				return cuInit(0);
+				cuwr::result_t result = cuInit(0);
+				if (result == cuwr::CUDA_SUCCESS_){
+					priv::libcu_default_gpu = new Gpu(0);
+					priv::libcu_default_gpu->makeCurrent();
+				}
+				return result;
 			} else{
 				std::cerr << "can't load " << path << ", err: " << priv::dp_error() << "\n";
 			}
@@ -275,8 +281,17 @@ namespace cuwr{
     bool isInitialized(){
 		return priv::libcu_handle != 0;
 	}
+	cuwr::Gpu& defaultGpu(){
+		if (!isInitialized()){
+			if (cuwr::result_t r = init()){
+				throw Exception(r);
+			}
+		}
+		return *priv::libcu_default_gpu;
+	}
     void cleanup(){
 		if (isInitialized()){
+			delete priv::libcu_default_gpu;
 			priv::dp_close(priv::libcu_handle);
 			priv::libcu_handle=0;
 		}

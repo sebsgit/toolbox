@@ -154,8 +154,8 @@ static void test_suite(cuwr::Gpu * gpu){
 }
 
 int main(){
-	assert( cuwr::init() == 0 );
-	cuwr::Gpu * gpu = new cuwr::Gpu();
+	cuwr::Gpu * gpu = &cuwr::defaultGpu();
+	assert(gpu);
     int driverVersion=0;
     cuassert(cuwr::cuDriverGetVersion(&driverVersion));
     std::cout << "CUDA driver version " << driverVersion << "\n";
@@ -167,7 +167,6 @@ int main(){
     std::thread th(test_suite,gpu);
 	th.join();
 
-	delete gpu;
 	cuwr::cleanup();
 	return 0;
 }

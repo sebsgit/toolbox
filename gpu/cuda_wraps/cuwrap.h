@@ -282,8 +282,11 @@ namespace cuwr{
 
     extern void addSearchPath(const std::string& path);
 
+	class Gpu;
+
     extern result_t init();
     extern bool isInitialized();
+    extern cuwr::Gpu& defaultGpu();
     extern void cleanup();
     
     extern std::string tostr(const result_t errCode);

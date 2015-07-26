@@ -10,10 +10,8 @@ int main(int argc, char ** argv){
 		std::cout << "cant init cuda!\n";
 		exit(0);
 	}
-    cuwr::Gpu * gpu = new cuwr::Gpu();
-    gpu->makeCurrent();
     size_t w,h;
-    cuwr::Image::maxImageSize(*gpu,&w,&h);
+    cuwr::Image::maxImageSize(cuwr::defaultGpu(),&w,&h);
     std::cout << "max image size: " << w << " x " << h << '\n';
     QImage image("test.jpg");
     cuwr::Image cimg = cuwr::Image::fromQImage(image.convertToFormat(QImage::Format_RGB888));
@@ -51,7 +49,6 @@ int main(int argc, char ** argv){
         vec.toImage().save("field.jpg");
     }
 
-    delete gpu;
 	cuwr::cleanup();
 	return 0;
 }
