@@ -102,6 +102,8 @@ __global__ void cuwr_MAD(const uchar * image1, const cuwr_image_kernel_data_t * 
             }
 
 /* implementation of Three-Step Search algorithm
+    function should be launched with enough shared memory to hold 9 float values
+    logical search block size should match the cuda grid thread block size
 */
 __global__ void cuwr_three_step_search(const uchar * image1, const cuwr_image_kernel_data_t * header1,
                                        const uchar * image2, const cuwr_image_kernel_data_t * header2,

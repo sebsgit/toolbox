@@ -26,7 +26,8 @@ unix{
 
 SOURCES += main.cpp	\
 		   ../cuda_wraps/cuwrap.cpp	\
-		   cuwr_img.cpp
+		   cuwr_img.cpp \
+    cuwr_motion_estimator.cpp
 
 HEADERS += \
     cuwr_img.h \
