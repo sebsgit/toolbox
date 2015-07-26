@@ -101,6 +101,51 @@ __global__ void cuwr_MAD(const uchar * image1, const cuwr_image_kernel_data_t * 
                 }
             }
 
+/* implementation of Three-Step Search algorithm
+*/
+__global__ void cuwr_three_step_search(const uchar * image1, const cuwr_image_kernel_data_t * header1,
+                                       const uchar * image2, const cuwr_image_kernel_data_t * header2,
+                                       const size_t S,
+                                       cuwr_dim2 * off,
+                                       cuwr_mad_result_t * output)
+            {
+                extern __shared__ float block_mad[];
+                const int blockId = blockIdx.x + blockIdx.y*gridDim.x;
+                const int diff_x = off[blockId].x;
+                const int diff_y = off[blockId].y;
+                const cuwr_dim2 offsets[9] = { cuwr_dim2(-S+diff_x,-S+diff_y),
+                                               cuwr_dim2(0+diff_x,-S+diff_y),
+                                               cuwr_dim2(S+diff_x,-S+diff_y),
+                                               cuwr_dim2(-S+diff_x,0+diff_y),
+                                               cuwr_dim2(0+diff_x,0+diff_y),
+                                               cuwr_dim2(S+diff_x,0+diff_y),
+                                               cuwr_dim2(-S+diff_x,S+diff_y),
+                                               cuwr_dim2(0+diff_x,S+diff_y),
+                                               cuwr_dim2(S+diff_x,S+diff_y)};
+                for (int i=0 ; i<9 ; ++i){
+                    const float mad = MAD_helper(threadIdx,blockIdx,blockDim,gridDim,
+                                                 image1,header1,
+                                                 image2,header2,
+                                                 &offsets[i]);
+                    if (mad > 0.0f)
+                        atomicAdd(&block_mad[i],mad);
+                }
+                __syncthreads();
+                if (threadIdx.x==0 && threadIdx.y==0){
+                    for (int i=0 ; i<9 ; ++i){
+                        block_mad[i] /= blockDim.x*blockDim.y;
+                        cuwr_mad_result_t * out = output + blockId;
+                        if (out->madValue > block_mad[i]){
+                            out->madValue = block_mad[i];
+                            out->offset.x = offsets[i].x;
+                            out->offset.y = offsets[i].y;
+                            off[blockId].x = offsets[i].x;
+                            off[blockId].y = offsets[i].y;
+                        }
+                    }
+                }
+            }
+
 /* calculate absolute value of difference between [image1] and [image2+offset]
     that is outp(x,y) = abs(image1(x,y) - image2(x+off.x, y+off.y))
     equal image sizes are assumed

@@ -85,6 +85,11 @@ namespace cuwr{
      */
     class MotionEstimator{
     public:
+        enum search_algorithm_t{
+            Search_Exhaustive,
+            Search_ThreeStep
+        };
+
         MotionEstimator(size_t blockSize=16, int searchWindow=8)
             :blockSize_(blockSize > 0 ? blockSize : 16)
             ,searchWindow_(searchWindow > 0 ? searchWindow : 8)
@@ -92,12 +97,28 @@ namespace cuwr{
             cuwr::result_t err = module.load("cuwr_motion.ptx");
             if (err == cuwr::CUDA_SUCCESS_){
                 this->calc_mad = module.function("cuwr_MAD",&err);
+                this->three_step = module.function("cuwr_three_step_search",&err);
             }
             if (err != cuwr::CUDA_SUCCESS_)
                 throw cuwr::Exception(err);
         }
         VectorField estimateMotionField(const cuwr::Image& image1,
-                                        const cuwr::Image& image2)
+                                        const cuwr::Image& image2,
+                                        search_algorithm_t alg = Search_ThreeStep)
+        {
+            switch (alg){
+            case Search_Exhaustive:
+                return this->exhaustiveSearch(image1,image2);
+            case Search_ThreeStep:
+                return this->threeStepSearch(image1,image2);
+            default:
+                break;
+            }
+            return VectorField();
+        }
+
+    private:
+        VectorField exhaustiveSearch(const cuwr::Image& image1,const cuwr::Image& image2)
         {
             VectorField result;
             if (image1.size() == image2.size()){
@@ -140,11 +161,55 @@ namespace cuwr{
             return result;
         }
 
+        VectorField threeStepSearch(const cuwr::Image& image1,const cuwr::Image& image2)
+        {
+            VectorField result;
+            if (image1.size() == image2.size()){
+                result.resize( ((image1.width()+blockSize_)-1)/blockSize_,
+                               ((image1.height()+blockSize_)-1)/blockSize_ );
+                if (result.isEmpty()==false){
+
+                    size_t searchStep = searchWindow_;
+                    cuwr::DeviceArray<cuwr_mad_result_t, cuwr::DeviceMemPinnedAllocator> perBlockResult;
+                    perBlockResult.resize(result.count(), cuwr_mad_result_t());
+                    cuwr::DeviceArray<cuwr_dim2> off_dev;
+                    off_dev.resize(result.count(),cuwr_dim2(0,0));
+                    cuwr::KernelLaunchParams params;
+                    params.autodetect(image1.size(),blockSize_);
+                    params.setSharedMemoryCount(sizeof(float)*9);
+                    image1.pushData(params);
+                    image1.pushHeader(params);
+                    image2.pushData(params);
+                    image2.pushHeader(params);
+                    params.push(&searchStep);
+                    params.push(off_dev);
+                    params.push(perBlockResult);
+
+                    while (searchStep > 0){
+                        if (cuwr::result_t r = cuwr::launch_kernel(this->three_step,params)){
+                            throw Exception(r);
+                        }
+                        cuwr::cuStreamSynchronize(0);
+                        searchStep /= 2;
+                    }
+                    const cuwr_mad_result_t * ptr = (const cuwr_mad_result_t*)perBlockResult.hostAddress();
+                    const float maxMadValue = image1.bytesPerPixel()*255.0f;
+                    for (size_t i=0 ; i<perBlockResult.count() ; ++i){
+                        if (ptr[i].madValue > 0.0 && ptr[i].madValue < maxMadValue && (ptr[i].offset.x || ptr[i].offset.y)){
+                            result.set(i,cuwr_vec2(ptr[i].offset.x,ptr[i].offset.y));
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
     private:
         size_t blockSize_;
         int searchWindow_;
         cuwr::Module module;
         cuwr::function_t calc_mad;
+        cuwr::function_t three_step;
     };
 }
 

@@ -47,7 +47,7 @@ int main(int argc, char ** argv){
 
         QTime t; t.start();
         cuwr::VectorField vec = motion.estimateMotionField(cimg,cimg2);
-        qDebug() << t.elapsed();
+        qDebug() << "motion field estimated in" << t.elapsed() << "ms";
         const float maxVecLength = sqrt(2.0f*searchWindow*searchWindow);
         QImage vecFieldImage(vec.width(),vec.height(),QImage::Format_RGB888);
         for (size_t i = 0 ; i < vec.width() ; ++i ){

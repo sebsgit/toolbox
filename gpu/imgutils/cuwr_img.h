@@ -31,6 +31,7 @@ namespace cuwr{
         Image(const Image& other);
         Image& operator = (const Image& other);
 		~Image();
+        bool isNull() const{ return this->byteCount()==0; }
         size_t byteCount() const;
         size_t width() const;
         size_t height() const;

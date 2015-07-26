@@ -22,6 +22,9 @@ struct cuwr_image_kernel_data_t{
 struct cuwr_dim2{
     int x;
     int y;
+#ifdef __NVCC__
+    __device__ __host__
+#endif
     cuwr_dim2(int ax=0, int ay=0)
         :x(ax)
         ,y(ay)
