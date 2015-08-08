@@ -114,7 +114,7 @@ static void test_kernel(cuwr::Gpu * gpu){
     value = dptr;
 
 	assert( value == 5 );
-	
+
     cuwr::DeviceValue<unsigned int> dev_count = 32;
     cuwr::DeviceArray<unsigned int, cuwr::DeviceMemPinnedAllocator> dev_array;
     unsigned int array[32];
@@ -154,19 +154,19 @@ static void test_suite(cuwr::Gpu * gpu){
 }
 
 int main(){
-	cuwr::Gpu * gpu = &cuwr::defaultGpu();
-	assert(gpu);
+    cuwr::Gpu * gpu = &cuwr::defaultGpu();
+    assert(gpu);
     int driverVersion=0;
     cuassert(cuwr::cuDriverGetVersion(&driverVersion));
     std::cout << "CUDA driver version " << driverVersion << "\n";
-	std::cout << gpu->name() << " (compute caps: " << gpu->computeCapabilityStr() << ")\n";
-	std::cout << gpu->totalMemory()/(1024*1024.0) << " mb \n";
-	std::cout << gpu->attribute(cuwr::CU_DEVICE_ATTRIBUTE_CLOCK_RATE_)/1024.0 << " Mhz\n";
+    std::cout << gpu->name() << " (compute caps: " << gpu->computeCapabilityStr() << ")\n";
+    std::cout << gpu->totalMemory()/(1024*1024.0) << " mb \n";
+    std::cout << gpu->attribute(cuwr::CU_DEVICE_ATTRIBUTE_CLOCK_RATE_)/1024.0 << " Mhz\n";
 
     test_suite(gpu);
     std::thread th(test_suite,gpu);
-	th.join();
+    th.join();
 
-	cuwr::cleanup();
-	return 0;
+    cuwr::cleanup();
+    return 0;
 }

@@ -40,7 +40,8 @@ namespace cuwr{
                  const size_t height,
                  const size_t widthStep,
                  const image_format_t fmt)
-        :format_(fmt)
+        :ContextEntity()
+        ,format_(fmt)
     {
         if (cuwr::result_t res = priv::init_module()){
             throw Exception(res);
@@ -55,7 +56,8 @@ namespace cuwr{
         }
     }
     Image::Image(const Image &other)
-        :header_(other.header_)
+        :ContextEntity()
+        ,header_(other.header_)
         ,data_(other.data_)
         ,format_(other.format_)
         ,offset_(0)

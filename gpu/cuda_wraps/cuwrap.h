@@ -29,7 +29,7 @@
                         K& operator = (K&&) = delete;
 
 namespace cuwr{
-	
+
 	enum result_t{
 		CUDA_SUCCESS_ = 0,
 		CUDA_ERROR_INVALID_VALUE_ = 1,
@@ -82,7 +82,7 @@ namespace cuwr{
 		CUDA_ERROR_NOT_SUPPORTED_ =  801,
 		CUDA_ERROR_UNKNOWN_ =  999
 	};
-	
+
 	enum device_attribute_t {
 		CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK_ = 1,
 		CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X_ = 2,
@@ -163,7 +163,7 @@ namespace cuwr{
 		CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_LINEAR_PITCH_ = 72,
 		CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_MIPMAPPED_WIDTH_ = 73,
 		CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE2D_MIPMAPPED_HEIGHT_ = 74,
-		CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR_ = 75,     
+		CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR_ = 75,
 		CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR_ = 76,
 		CU_DEVICE_ATTRIBUTE_MAXIMUM_TEXTURE1D_MIPMAPPED_WIDTH_ = 77,
 		CU_DEVICE_ATTRIBUTE_STREAM_PRIORITIES_SUPPORTED_ = 78,
@@ -199,7 +199,7 @@ namespace cuwr{
         CU_STREAM_DEFAULT = 0x0,
         CU_STREAM_NON_BLOCKING = 0x1
     };
-	
+
 	typedef int device_t;
 	typedef unsigned int * device_memptr_t; /*unsigned integer type whose size matches the size of a pointer*/
 	typedef struct CUctx_st * context_t;
@@ -207,7 +207,7 @@ namespace cuwr{
 	typedef struct CUfunc_st * function_t;
 	typedef struct CUevent_st * event_t;
 	typedef struct CUstream_st * stream_t;
-	
+
 	/* initialization */
 	extern std::function<result_t(int)> cuInit;
 	/* error handling */
@@ -262,10 +262,10 @@ namespace cuwr{
 
 	/* execution control */
 	extern std::function<result_t(function_t,
-						 unsigned int, unsigned int, unsigned int, 
+						 unsigned int, unsigned int, unsigned int,
 					     unsigned int, unsigned int, unsigned int,
-					     unsigned int, 
-					     stream_t, 
+					     unsigned int,
+					     stream_t,
 					     void **,
 					     void **)> cuLaunchKernel;
     /* occupancy */
@@ -288,21 +288,21 @@ namespace cuwr{
     extern bool isInitialized();
     extern cuwr::Gpu& defaultGpu();
     extern void cleanup();
-    
+
     extern std::string tostr(const result_t errCode);
-	
+
     class Exception : public std::exception{
     public:
         Exception(cuwr::result_t errCode)
             :err_(errCode)
             ,buff_(cuwr::tostr(errCode))
         {
-            
+
         }
-        const char * what() const 
+        const char * what() const
 						#ifdef __linux__
-							noexcept(true) 
-						#endif	
+							noexcept(true)
+						#endif
 							override
 		{
             return buff_.c_str();
@@ -312,10 +312,36 @@ namespace cuwr{
         const std::string buff_;
     };
 
+	/*!
+	 *  \brief base class for object that needs the cuda context to work properly
+	 */
+	class ContextEntity{
+	public:
+		ContextEntity(const cuwr::stream_t stream=0)
+			:stream_(stream)
+		{
+			if (cuwr::isInitialized()==false){
+				if (cuwr::result_t r = cuwr::init()){
+					throw cuwr::Exception(r);
+				}
+			}
+		}
+		virtual ~ContextEntity(){
+		}
+		cuwr::stream_t stream() const{
+			return this->stream_;
+		}
+    void setStream(const cuwr::stream_t& stream) {
+      this->stream_ = stream;
+    }
+	protected:
+		cuwr::stream_t stream_;
+	};
+
     /*!
      * \brief base class for device values
      */
-    class DeviceValueBase{
+    class DeviceValueBase : public ContextEntity{
     public:
         virtual ~DeviceValueBase(){
         }
@@ -405,10 +431,10 @@ namespace cuwr{
     template <typename T, typename Alloc = DefaultAllocator>
     class DeviceValue : public DeviceValueBase{
 	public:
-	
+
 		typedef T value_type;
         typedef Alloc allocator_type;
-	
+
         DeviceValue(const void * init_value=0)
 		{
             Alloc::zero(&devPtr_);
@@ -616,8 +642,8 @@ namespace cuwr{
         typename Alloc::pointer_type devPtr_;
         size_t count_;
     };
-	
-	class KernelLaunchParams{
+
+	class KernelLaunchParams : public ContextEntity{
 		CUWR_NOCPY(KernelLaunchParams)
 	public:
         KernelLaunchParams() = default;
@@ -643,9 +669,6 @@ namespace cuwr{
 			blockDimY_ = y;
 			blockDimZ_ = z;
 		}
-        void setStream(cuwr::stream_t stream){
-            this->stream_ = stream;
-        }
         void setSharedMemoryCount(unsigned int numBytes){
             this->sharedMemBytes_ = numBytes;
         }
@@ -656,7 +679,7 @@ namespace cuwr{
         void push(const T * ptr){
             params_.push_back((void *)ptr);
         }
-		
+
         /*
          finds the smallest 2d rectangle with area >= n_elems
          both width and height of the rectangle must be powers of 2
@@ -717,14 +740,13 @@ namespace cuwr{
 		unsigned int gridDimX_=1, gridDimY_=1, gridDimZ_=1;
 		unsigned int blockDimX_=1, blockDimY_=1, blockDimZ_=1;
 		unsigned int sharedMemBytes_=0;
-		cuwr::stream_t stream_=0;
 		std::vector<void *> params_;
 		std::vector<void *> extra_;
 
         friend cuwr::result_t launch_kernel(cuwr::function_t, const KernelLaunchParams&);
 	};
-	
-	class Module{
+
+	class Module : public ContextEntity{
 		CUWR_NOCPY(Module)
 	public:
 		Module(const char * fname=0)
@@ -756,12 +778,12 @@ namespace cuwr{
 		}
 	private:
 		cuwr::module_t module_;
-	};	
-	
+	};
+
 	/*!
 	 * \brief Wrapper for GPU functionality
 	 * */
-	class Gpu{
+	class Gpu : public ContextEntity{
 		CUWR_NOCPY(Gpu)
 	public:
 		Gpu(int dev_number=0)
@@ -832,7 +854,7 @@ namespace cuwr{
      *     t.stop();
      *     float msec = t.elapsed();
      */
-    class Timer{
+    class Timer : public ContextEntity{
     public:
         Timer(unsigned int flags = cuwr::CU_EVENT_DEFAULT_)
             :result_(0.0f)
@@ -848,11 +870,11 @@ namespace cuwr{
             if (this->stopOk_)
                 cuwr::cuEventDestroy(stop_);
         }
-        bool start(stream_t stream=0){
-            return cuwr::cuEventRecord(start_,stream)==0;
+        bool start(){
+            return cuwr::cuEventRecord(start_,stream())==0;
         }
-        bool stop(stream_t stream=0){
-            return cuwr::cuEventRecord(stop_,stream)==0;
+        bool stop(){
+            return cuwr::cuEventRecord(stop_,stream())==0;
         }
         float elapsed(){
             float result=0.0f;
@@ -868,9 +890,9 @@ namespace cuwr{
         bool startOk_;
         bool stopOk_;
     };
-	
+
 	extern cuwr::result_t launch_kernel(cuwr::function_t fn, const KernelLaunchParams& params);
-	
+
 }
 
 #endif
