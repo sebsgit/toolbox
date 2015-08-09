@@ -9,7 +9,7 @@ namespace cuwr{
         static cuwr::function_t copy;
         static cuwr::result_t init_module(){
             if (img_module.isLoaded() == false){
-                const cuwr::result_t err = img_module.load("cuwr_imgutils.ptx");
+                const cuwr::result_t err = img_module.loadFile("cuwr_imgutils.ptx");
                 if (err == cuwr::CUDA_SUCCESS_){
                     priv::swap_rgb = img_module.function("cuwr_swap_rgb");
                     priv::set_pixels = img_module.function("cuwr_set_pixels");

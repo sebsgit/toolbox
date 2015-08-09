@@ -16,7 +16,7 @@ Widget::Widget(QWidget *parent)
         _gpu_data.reset(new gpu_data);
         _gpu_data->gpu.reset(new cuwr::Gpu(0));
         qDebug() << "GPU initialized: " << QString::fromStdString(_gpu_data->gpu->name());
-        _gpu_data->module.load("kernel.ptx");
+        _gpu_data->module.loadFile("kernel.ptx");
     } else{
         qDebug() << "GPU init error: " << err;
     }
@@ -225,4 +225,3 @@ void Widget::keyPressEvent(QKeyEvent *event){
     }
     refreshImage();
 }
-

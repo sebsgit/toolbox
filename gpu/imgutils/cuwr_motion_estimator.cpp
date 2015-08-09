@@ -72,7 +72,7 @@ MotionEstimator::MotionEstimator(size_t blockSize, int searchWindow)
     :blockSize_(blockSize > 0 ? blockSize : 16)
     ,searchWindow_(searchWindow > 0 ? searchWindow : 8)
 {
-    cuwr::result_t err = module.load("cuwr_motion.ptx");
+    cuwr::result_t err = module.loadFile("cuwr_motion.ptx");
     if (err == cuwr::CUDA_SUCCESS_){
         this->calc_mad = module.function("cuwr_MAD",&err);
         this->three_step = module.function("cuwr_three_step_search",&err);

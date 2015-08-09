@@ -8,6 +8,25 @@
 
 #define cuassert(what) { const cuwr::result_t err = what; if(err!=0){ std::cout << __LINE__ << ":" << cuwr::tostr(err); assert(0);} }
 
+static const std::string kernel_source = 
+".version 4.2\n"
+".target sm_20\n"
+".address_size 64\n"
+".visible .entry kernel(\n"
+"	.param .u64 kernel_param_0\n"
+")\n"
+"{\n"
+"	.reg .s32 	%r<2>;\n"
+"	.reg .s64 	%rd<3>;\n"
+"\n"
+"\n"
+"	ld.param.u64 	%rd1, [kernel_param_0];\n"
+"	cvta.to.global.u64 	%rd2, %rd1;\n"
+"	mov.u32 	%r1, 5;\n"
+"	st.global.u32 	[%rd2], %r1;\n"
+"	ret;\n"
+"}";
+
 static int stream_cb_launched = 0;
 
 static void stream_cb(cuwr::stream_t /*s*/, cuwr::result_t res, void *){
@@ -146,11 +165,27 @@ static void test_kernel(cuwr::Gpu * gpu){
     std::cout << "kernels launched in: " << timer.elapsed() << "ms.\n";
 }
 
+static void test_load_ptx_source(){
+	unsigned int value=0;
+    cuwr::DeviceValue<unsigned int, cuwr::DeviceMemPinnedAllocator> dptr;
+	cuwr::Module module(kernel_source,cuwr::Module::PtxSource);
+	assert(module.isLoaded());
+	cuwr::KernelLaunchParams params;
+	params.setBlockSize(2,2);
+	params.push(dptr);
+
+    cuassert(cuwr::launch_kernel(module.function("kernel"),params));
+    value = dptr;
+
+	assert( value == 5 );
+}
+
 static void test_suite(cuwr::Gpu * gpu){
     gpu->makeCurrent();
     test_kernel(gpu);
     test_pinned_mem(gpu);
     test_stream();
+    test_load_ptx_source();
 }
 
 int main(){

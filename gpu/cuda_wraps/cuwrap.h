@@ -231,6 +231,7 @@ namespace cuwr{
     extern std::function<result_t(void)> cuCtxSynchronize;
 	/* module management */
 	extern std::function<result_t(module_t*,const char *)> cuModuleLoad;
+    extern std::function<result_t(module_t*,const void *)> cuModuleLoadData;
 	extern std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
 	extern std::function<result_t(module_t)> cuModuleUnload;
     /* memory management */
@@ -331,9 +332,9 @@ namespace cuwr{
 		cuwr::stream_t stream() const{
 			return this->stream_;
 		}
-    void setStream(const cuwr::stream_t& stream) {
-      this->stream_ = stream;
-    }
+        void setStream(const cuwr::stream_t& stream) {
+          this->stream_ = stream;
+        }
 	protected:
 		cuwr::stream_t stream_;
 	};
@@ -749,11 +750,15 @@ namespace cuwr{
 	class Module : public ContextEntity{
 		CUWR_NOCPY(Module)
 	public:
-		Module(const char * fname=0)
+        enum SourceType {
+            Filesystem,
+            PtxSource
+        };
+		Module(const std::string& source=std::string(), SourceType type = Filesystem)
 			:module_(0)
 		{
-			if (fname){
-				load(fname);
+			if (source.empty()==false){
+				load(source,type);
 			}
 		}
 		~Module(){
@@ -763,9 +768,20 @@ namespace cuwr{
 		bool isLoaded() const{
 			return module_ != 0;
 		}
-		cuwr::result_t load(const char * fname){
-			return cuwr::cuModuleLoad(&module_,fname);
+		cuwr::result_t load(const std::string& source, SourceType type){
+            switch (type) {
+                case Filesystem: return this->loadFile(source);
+                case PtxSource: return this->loadPtx(source);
+                default: break;
+            }
+            return cuwr::CUDA_ERROR_UNKNOWN_;
 		}
+        cuwr::result_t loadFile(const std::string& path) {
+            return cuwr::cuModuleLoad(&module_,path.c_str());
+        }
+        cuwr::result_t loadPtx(const std::string& source){
+            return cuwr::cuModuleLoadData(&module_,(const void *)source.c_str());
+        }
 		cuwr::function_t function(const char * name, cuwr::result_t * errCode = nullptr){
 			cuwr::function_t fn = 0;
 			const cuwr::result_t err = cuwr::cuModuleGetFunction(&fn,module_,name);
