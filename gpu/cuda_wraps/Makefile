@@ -7,9 +7,9 @@ RM=rm -f
 TARGET=a.out
 CUDA_SRC=kernel.cu
 
-all: main
+all: $(TARGET) kernel.ptx
 
-main: $(CORE_OBJ) main.cpp $(CUDA_SRC) cuwrap.cpp
+$(TARGET): $(CORE_OBJ) main.cpp $(CUDA_SRC) cuwrap.cpp
 	$(CC) $(CFLAGS) $(CORE_OBJ) cuwrap.cpp main.cpp -o $(TARGET) $(LIBS) $(LDFLAGS)
 
 kernel.ptx: kernel.cu

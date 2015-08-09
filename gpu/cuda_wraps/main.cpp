@@ -192,8 +192,13 @@ int main(){
     cuwr::Gpu * gpu = &cuwr::defaultGpu();
     assert(gpu);
     int driverVersion=0;
+    int deviceCount=0;
+    cuassert(cuwr::cuDeviceGetCount(&deviceCount));
     cuassert(cuwr::cuDriverGetVersion(&driverVersion));
     assert(gpu->computeCapability() >= 1.0);
+    assert(deviceCount>0);
+    cuwr::Gpu badGpu(deviceCount+1);
+    assert(badGpu.isInitialized()==false);
     std::cout << "CUDA driver version " << driverVersion << "\n";
     std::cout << gpu->name() << " (compute caps: " << gpu->computeCapability() << ")\n";
     std::cout << gpu->totalMemory()/(1024*1024.0) << " mb \n";
