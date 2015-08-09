@@ -19,7 +19,7 @@
 #include <vector>
 #include <functional>
 #include <string>
-#include <sstream>
+#include <cmath>
 #include <cstring>
 
 #define CUWR_NOCPY(K) private:						\
@@ -836,16 +836,14 @@ namespace cuwr{
 			}
 			return std::string();
 		}
-		const std::string computeCapabilityStr() const{
+		const float computeCapability() const{
+            float result = 0.0;
 			if (context_){
-				std::stringstream ss;
-				ss << this->attribute(cuwr::CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR_)
-				   << '.'
-				   << this->attribute(cuwr::CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR_);
-				return ss.str();
-			} else{
-				return std::string();
+                const float minor = this->attribute(cuwr::CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR_);
+				result = this->attribute(cuwr::CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR_);
+                result += minor/pow(10, log10(minor) + 1);
 			}
+            return result;
 		}
         size_t totalMemory() const{
 			size_t result=0;

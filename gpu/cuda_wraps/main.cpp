@@ -8,7 +8,7 @@
 
 #define cuassert(what) { const cuwr::result_t err = what; if(err!=0){ std::cout << __LINE__ << ":" << cuwr::tostr(err); assert(0);} }
 
-static const std::string kernel_source = 
+static const std::string kernel_source =
 ".version 4.2\n"
 ".target sm_20\n"
 ".address_size 64\n"
@@ -193,8 +193,9 @@ int main(){
     assert(gpu);
     int driverVersion=0;
     cuassert(cuwr::cuDriverGetVersion(&driverVersion));
+    assert(gpu->computeCapability() >= 1.0);
     std::cout << "CUDA driver version " << driverVersion << "\n";
-    std::cout << gpu->name() << " (compute caps: " << gpu->computeCapabilityStr() << ")\n";
+    std::cout << gpu->name() << " (compute caps: " << gpu->computeCapability() << ")\n";
     std::cout << gpu->totalMemory()/(1024*1024.0) << " mb \n";
     std::cout << gpu->attribute(cuwr::CU_DEVICE_ATTRIBUTE_CLOCK_RATE_)/1024.0 << " Mhz\n";
 
