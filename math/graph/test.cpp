@@ -105,11 +105,72 @@ static void test_builder(){
 	builder.connectDirected(3,4);
 	builder.connectDirected(5,6);
 	assert(builder.parts() == 3);
+	builder.connect(1,6);
+	assert(builder.parts() == 2);
+	builder.connect(3,5);
+	assert(builder.parts() == 1);
+	Graph<int> graph = builder.result();
+	assert(graph.node(1));
+	assert(graph.node(2));
+	assert(graph.node(3));
+	assert(graph.node(4));
+	assert(graph.node(5));
+	assert(graph.node(6));
+}
+
+void test_algorithms() {
+	Graph<int> graph;
+	graph.add(1);
+	graph.add(2);
+	graph.add(3);
+	assert(graph.shortestPath(1,3).size() == 0);
+	assert(graph.shortestPath(1,1).size() == 1);
+	assert(graph.shortestPath(2,2).size() == 1);
+	assert(graph.shortestPath(3,3).size() == 1);
+	graph.connectDirected(1,2);
+	assert(graph.shortestPath(1,2).size() == 2);
+	graph.connectDirected(2,3);
+	assert(graph.shortestPath(2,3).size() == 2);
+	auto path = graph.shortestPath(1,3);
+	assert(path.size() == 3);
+	assert(path[0] == 1);
+	assert(path[1] == 2);
+	assert(path[2] == 3);
+	// create cycle
+	graph.connectDirected(3,1);
+	assert(graph.shortestPath(1,3).size() == 3);
+	path = graph.shortestPath(2,1);
+	assert(path.size() == 3);
+	assert(path[0] == 2);
+	assert(path[1] == 3);
+	assert(path[2] == 1);
+	assert(graph.shortestPath(3,1).size() == 2);
+
+	graph.clear();
+	graph.add(1);
+	graph.add(2);
+	graph.add(3);
+	graph.add(4);
+	graph.add(5);
+	graph.add(6);
+	graph.connectDirected(4,6);
+	graph.connectDirected(6,5);
+	graph.connectDirected(4,3);
+	graph.connectDirected(3,5);
+	graph.connectDirected(2,1);
+	graph.connectDirected(1,4);
+	assert(graph.shortestPath(1,1).size()==1);
+	assert(graph.shortestPath(1,2).size()==0);
+	assert(graph.shortestPath(1,3).size()==3);
+	assert(graph.shortestPath(1,4).size()==2);
+	assert(graph.shortestPath(1,5).size()==4);
+	assert(graph.shortestPath(1,6).size()==3);
 }
 
 int main(int argc, char ** argv) {
 	test_int();
 	test_visit();
 	test_builder();
+	test_algorithms();
 	return 0;
 }

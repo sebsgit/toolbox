@@ -78,6 +78,9 @@ public:
 	Graph() {
 
 	}
+	void clear(){
+		this->_nodes.clear();
+	}
 	bool connectDirected(const T& data1, const T& data2) {
 		auto n1 = this->node(data1);
 		auto n2 = this->node(data2);
@@ -138,6 +141,36 @@ public:
 			}
 		}
 	}
+	std::vector<T> shortestPath(const T& data1, const T& data2) {
+		typedef std::pair<nodeptr_t, std::vector<T>> bfs_data_t;
+		std::vector<T> result;
+		auto n1 = this->node(data1);
+		auto n2 = this->node(data2);
+		if (!n1 || !n2)
+			return result;
+		std::set<nodeptr_t> visited;
+		std::deque<bfs_data_t> queue;
+		queue.push_back(std::make_pair(n1,std::vector<T>()));
+		while (!queue.empty()) {
+			auto n = queue.front();
+			queue.pop_front();
+			auto it = visited.find(n.first);
+			if (n.first->data() == data2) {
+				result.insert(result.end(),n.second.begin(), n.second.end());
+				result.push_back(data2);
+				break;
+			}
+			if (it == visited.end()) {
+				visited.insert(n.first);
+				for (auto p : n.first->_neighbours) {
+					auto vec = n.second;
+					vec.push_back(n.first->data());
+					queue.push_back(std::make_pair(p,vec));
+				}
+			}
+		}
+		return result;
+	}
 private:
 	std::set<nodeptr_t> _nodes;
 };
@@ -163,21 +196,24 @@ public:
 			int b2 = this->bucket(n2);
 			if (b1 > -1 && b2 > -1 && b1 != b2) {
 				_buckets[b1].push_back(n2);
-				_buckets[b2].erase(std::find(_buckets[b2].begin(), _buckets[b2].end(), n2));
-				if (_buckets[b2].empty()) {
-					_buckets.erase(_buckets.begin() + b2);
-				}
+				for (const auto & n : _buckets[b2])
+					_buckets[b1].push_back(n);
+				_buckets.erase(_buckets.begin() + b2);
 			}
 		}
 	}
-	Graph<T> result() const{
+	void connect(const T& data1, const T& data2) {
+		this->connectDirected(data1,data2);
+		this->_graph.connectDirected(data2,data1);
+	}
+	Graph<T> result() const {
 		return this->_graph;
 	}
-	size_t parts() const{
+	size_t parts() const {
 		return this->_buckets.size();
 	}
 private:
-	int bucket(const nodeptr_t& node) const{
+	int bucket(const nodeptr_t& node) const {
 		for (int i=0 ; i<_buckets.size() ; ++i)
 			if (std::find(_buckets[i].begin(), _buckets[i].end(), node) != _buckets[i].end())
 				return i;
