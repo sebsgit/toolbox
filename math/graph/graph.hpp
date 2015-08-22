@@ -15,8 +15,12 @@ template <typename T> class Graph;
 
 template <typename T>
 class Node {
+private:
+	static bool defaultStopCondition(T&){return false;}
 public:
 	typedef std::shared_ptr<Node<T>> nodeptr_t;
+	typedef std::function<void(T& data)> node_visit_function_t;
+	typedef std::function<bool(T&)> node_visit_stop_condition_t;
 	Node(const T& data = T())
 		:_data(data)
 	{
@@ -34,7 +38,25 @@ public:
 	void connectTo(nodeptr_t other) {
 		this->_neighbours.insert(other);
 	}
-	void visitBfs(std::function<void(T& data)> fn) {
+	/* perform a BFS search starting at this node
+		search condition can be used to stop the algorithm
+		if stopCondition() returns 'true' then 'fn' is not called
+		for the visited node and the search is stopped
+	 */
+	void visitBfs(	node_visit_function_t fn,
+					node_visit_stop_condition_t stopCondition = defaultStopCondition)
+	{
+		this->do_bfs([&](Node* node){ fn(node->data()); }, stopCondition);
+	}
+	void visitDfs(	node_visit_function_t fn,
+					node_visit_stop_condition_t stopCondition = defaultStopCondition)
+	{
+		this->do_dfs([&](Node* node){fn(node->data());}, stopCondition);
+	}
+private:
+	void do_bfs(std::function<void(Node*)> fn,
+				node_visit_stop_condition_t stopCondition = defaultStopCondition)
+	{
 		std::set<Node*> visited;
 		std::deque<Node*> queue;
 		queue.push_back(this);
@@ -42,14 +64,18 @@ public:
 			auto n = queue.front();
 			queue.pop_front();
 			if (visited.find(n) == visited.end()){
-				fn(n->data());
+				if (stopCondition(n->data()))
+					break;
+				fn(n);
 				for (auto p : n->_neighbours)
 					queue.push_back(p.get());
 				visited.insert(n);
 			}
 		}
 	}
-	void visitDfs(std::function<void(T& data)> fn) {
+	void do_dfs(std::function<void(Node*)> fn,
+				node_visit_stop_condition_t stopCondition = defaultStopCondition)
+	{
 		std::set<Node*> visited;
 		std::stack<Node*> stack;
 		stack.push(this);
@@ -57,7 +83,9 @@ public:
 			auto n = stack.top();
 			stack.pop();
 			if (visited.find(n) == visited.end()){
-				fn(n->data());
+				if (stopCondition(n->data()))
+					break;
+				fn(n);
 				for (auto p : n->_neighbours)
 					stack.push(p.get());
 				visited.insert(n);
@@ -102,44 +130,6 @@ public:
 									return n->data() == data;
 								});
 		return it != this->_nodes.end() ? *it : nullptr;
-	}
-	void visitBfs(std::function<void(T& data)> fn) {
-		std::set<nodeptr_t> toVisit = this->_nodes;
-		while (toVisit.empty() == false) {
-			nodeptr_t node = *toVisit.begin();
-			std::deque<nodeptr_t> queue;
-			queue.push_back(node);
-			while (!queue.empty()){
-				auto n = queue.front();
-				queue.pop_front();
-				auto it = toVisit.find(n);
-				if (it != toVisit.end()){
-					fn(n->data());
-					for (auto p : n->_neighbours)
-						queue.push_back(p);
-					toVisit.erase(it);
-				}
-			}
-		}
-	}
-	void visitDfs(std::function<void(T& data)> fn) {
-		std::set<nodeptr_t> toVisit = this->_nodes;
-		while (toVisit.empty() == false) {
-			nodeptr_t node = *toVisit.begin();
-			std::stack<nodeptr_t> stack;
-			stack.push(node);
-			while (!stack.empty()){
-				auto n = stack.top();
-				stack.pop();
-				auto it = toVisit.find(n);
-				if (it != toVisit.end()){
-					fn(n->data());
-					for (auto p : n->_neighbours)
-						stack.push(p);
-					toVisit.erase(it);
-				}
-			}
-		}
 	}
 	std::vector<T> shortestPath(const T& data1, const T& data2) {
 		typedef std::pair<nodeptr_t, std::vector<T>> bfs_data_t;

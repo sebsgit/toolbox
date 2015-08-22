@@ -14,16 +14,16 @@ static void test_int(){
 	assert(graph.node(2));
 	assert(graph.node(3));
 	assert(graph.node(0) == nullptr);
-	graph.visitBfs([&](int& n){
+	graph.node(2)->visitBfs([&](int& n){
 		n *= 2;
 	});
-	assert(graph.node(2));
+	assert(graph.node(1));
 	assert(graph.node(4));
 	assert(graph.node(6));
-	graph.visitDfs([&](int& n){
+	graph.node(4)->visitDfs([&](int& n){
 		n *= 3;
 	});
-	assert(graph.node(6));
+	assert(graph.node(1));
 	assert(graph.node(12));
 	assert(graph.node(18));
 }
@@ -54,7 +54,7 @@ static void test_visit(){
 	graph.connectDirected(3,5);
 	graph.connectDirected(3,6);
 	std::vector<int> visitOrder;
-	graph.visitDfs([&](int n){
+	graph.node(1)->visitDfs([&](int n){
 		visitOrder.push_back(n);
 	});
 	assert(visitOrder.size() == 6);
@@ -63,7 +63,7 @@ static void test_visit(){
 	assert(indexOf(visitOrder, 3) < indexOf(visitOrder,6));
 	assert(indexOf(visitOrder, 3) < indexOf(visitOrder,5));
 	visitOrder.clear();
-	graph.visitBfs([&](int n){
+	graph.node(1)->visitBfs([&](int n){
 		visitOrder.push_back(n);
 	});
 	assert(visitOrder.size() == 6);
@@ -91,6 +91,30 @@ static void test_visit(){
 	assert(indexOf(visitOrder, 2) < indexOf(visitOrder,4));
 	assert(indexOf(visitOrder, 3) < indexOf(visitOrder,6));
 	assert(indexOf(visitOrder, 3) < indexOf(visitOrder,5));
+	visitOrder.clear();
+	int nodesToVisit = 2;
+	graph.node(1)->visitDfs([&](int n){
+								--nodesToVisit;
+								visitOrder.push_back(n);
+							},
+							[&](int){
+								if(nodesToVisit==0)
+									return true;
+								return false;
+							});
+	assert(visitOrder.size() == 2);
+	nodesToVisit = 3;
+	visitOrder.clear();
+	graph.node(1)->visitBfs([&](int n){
+								--nodesToVisit;
+								visitOrder.push_back(n);
+							},
+							[&](int){
+								if(nodesToVisit==0)
+									return true;
+								return false;
+							});
+	assert(visitOrder.size() == 3);
 }
 
 static void test_builder(){
