@@ -37,6 +37,13 @@ int indexOf(const std::vector<T>& v, const T& element) {
 	return -1;
 }
 
+template <typename T>
+std::ostream& operator << (std::ostream& out, const std::vector<T>& vec) {
+	for (auto t : vec) out << t << " ";
+	out << "\n";
+	return out;
+}
+
 //       1
 //  2       3
 //   4    5   6
@@ -53,6 +60,7 @@ static void test_visit(){
 	graph.connectDirected(1,3);
 	graph.connectDirected(3,5);
 	graph.connectDirected(3,6);
+	assert(graph.isAcyclic());
 	std::vector<int> visitOrder;
 	graph.node(1)->visitDfs([&](int n){
 		visitOrder.push_back(n);
@@ -189,6 +197,24 @@ void test_algorithms() {
 	assert(graph.shortestPath(1,4).size()==2);
 	assert(graph.shortestPath(1,5).size()==4);
 	assert(graph.shortestPath(1,6).size()==3);
+
+	graph.clear();
+	graph.add(1);
+	graph.add(2);
+	graph.add(3);
+	graph.add(4);
+	graph.connectDirected(1,2);
+	graph.connectDirected(2,3);
+	graph.connectDirected(3,1);
+	graph.connectDirected(3,4);
+	assert(graph.isAcyclic()==false);
+	assert(graph.findCycle(1) == std::vector<int>({1,2,3,1}));
+	assert(graph.findCycle(2) == std::vector<int>({2,3,1,2}));
+	assert(graph.findCycle(3) == std::vector<int>({3,1,2,3}));
+	assert(graph.findCycle(0).empty());
+	assert(graph.findCycle(4).empty());
+	assert(graph.remove(4));
+	assert(graph.remove(4)==false);
 }
 
 int main(int argc, char ** argv) {

@@ -123,6 +123,9 @@ public:
 		this->_nodes.insert(node);
 		return node;
 	}
+	bool remove(const T& data) {
+		return this->_nodes.erase(this->node(data)) > 0;
+	}
 	nodeptr_t node(const T& data) const{
 		auto it = std::find_if(	this->_nodes.begin(),
 								this->_nodes.end(),
@@ -131,23 +134,42 @@ public:
 								});
 		return it != this->_nodes.end() ? *it : nullptr;
 	}
-	std::vector<T> shortestPath(const T& data1, const T& data2) {
-		typedef std::pair<nodeptr_t, std::vector<T>> bfs_data_t;
+	bool isAcyclic() const {
+		for (auto n : _nodes)
+			if (findCycle(n->data()).size() > 1)
+				return false;
+		return true;
+	}
+	std::vector<T> findCycle(const T& startNode) const {
+		auto node = this->node(startNode);
+		return this->do_shortest_path(node,
+			[&](bfs_data_t& n){
+				return n.first == node && n.second.size() > 0;
+			}
+		);
+	}
+	std::vector<T> shortestPath(const T& data1, const T& data2) const {
+		return this->do_shortest_path(this->node(data1),
+			[&](bfs_data_t& node){
+				return node.first->data() == data2;
+			});
+	}
+private:
+	typedef std::pair<nodeptr_t, std::vector<T>> bfs_data_t;
+	std::vector<T> do_shortest_path(nodeptr_t startNode, std::function<bool(bfs_data_t&)> stopCondition) const {
 		std::vector<T> result;
-		auto n1 = this->node(data1);
-		auto n2 = this->node(data2);
-		if (!n1 || !n2)
+		if (!startNode)
 			return result;
 		std::set<nodeptr_t> visited;
 		std::deque<bfs_data_t> queue;
-		queue.push_back(std::make_pair(n1,std::vector<T>()));
+		queue.push_back(std::make_pair(startNode,std::vector<T>()));
 		while (!queue.empty()) {
 			auto n = queue.front();
 			queue.pop_front();
 			auto it = visited.find(n.first);
-			if (n.first->data() == data2) {
+			if (stopCondition(n)) {
 				result.insert(result.end(),n.second.begin(), n.second.end());
-				result.push_back(data2);
+				result.push_back(n.first->data());
 				break;
 			}
 			if (it == visited.end()) {
