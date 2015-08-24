@@ -32,7 +32,7 @@ public:
 	T& data(){
 		return this->_data;
 	}
-	const T data() const{
+	const T& data() const{
 		return this->_data;
 	}
 	void connectTo(nodeptr_t other) {
@@ -103,9 +103,10 @@ class Graph{
 public:
 	typedef typename Node<T>::nodeptr_t nodeptr_t;
 	typedef Node<T> node_t;
-	Graph() {
-
-	}
+	Graph() = default;
+	Graph(const Graph&) = default;
+	Graph(Graph&&) = default;
+	~Graph() = default;
 	void clear(){
 		this->_nodes.clear();
 	}
@@ -185,55 +186,6 @@ private:
 	}
 private:
 	std::set<nodeptr_t> _nodes;
-};
-
-template <typename T>
-class GraphBuilder {
-	typedef typename Graph<T>::nodeptr_t nodeptr_t;
-	typedef std::vector<nodeptr_t> bucket_t;
-public:
-	void clear() {
-		this->_graph = Graph<T>();
-		this->_buckets.clear();
-	}
-	void add(const T& data){
-		auto node = this->_graph.add(data);
-		this->_buckets.push_back(bucket_t(1, node));
-	}
-	void connectDirected(const T& data1, const T& data2) {
-		if (this->_graph.connectDirected(data1,data2) ) {
-			auto n1 = this->_graph.node(data1);
-			auto n2 = this->_graph.node(data2);
-			int b1 = this->bucket(n1);
-			int b2 = this->bucket(n2);
-			if (b1 > -1 && b2 > -1 && b1 != b2) {
-				_buckets[b1].push_back(n2);
-				for (const auto & n : _buckets[b2])
-					_buckets[b1].push_back(n);
-				_buckets.erase(_buckets.begin() + b2);
-			}
-		}
-	}
-	void connect(const T& data1, const T& data2) {
-		this->connectDirected(data1,data2);
-		this->_graph.connectDirected(data2,data1);
-	}
-	Graph<T> result() const {
-		return this->_graph;
-	}
-	size_t parts() const {
-		return this->_buckets.size();
-	}
-private:
-	int bucket(const nodeptr_t& node) const {
-		for (int i=0 ; i<_buckets.size() ; ++i)
-			if (std::find(_buckets[i].begin(), _buckets[i].end(), node) != _buckets[i].end())
-				return i;
-		return -1;
-	}
-private:
-	Graph<T> _graph;
-	std::vector<bucket_t> _buckets;
 };
 
 }

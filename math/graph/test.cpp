@@ -125,31 +125,6 @@ static void test_visit(){
 	assert(visitOrder.size() == 3);
 }
 
-static void test_builder(){
-	GraphBuilder<int> builder;
-	builder.add(1);
-	builder.add(2);
-	builder.add(3);
-	builder.add(4);
-	builder.add(5);
-	builder.add(6);
-	builder.connectDirected(1,2);
-	builder.connectDirected(3,4);
-	builder.connectDirected(5,6);
-	assert(builder.parts() == 3);
-	builder.connect(1,6);
-	assert(builder.parts() == 2);
-	builder.connect(3,5);
-	assert(builder.parts() == 1);
-	Graph<int> graph = builder.result();
-	assert(graph.node(1));
-	assert(graph.node(2));
-	assert(graph.node(3));
-	assert(graph.node(4));
-	assert(graph.node(5));
-	assert(graph.node(6));
-}
-
 void test_algorithms() {
 	Graph<int> graph;
 	graph.add(1);
@@ -220,7 +195,6 @@ void test_algorithms() {
 int main(int argc, char ** argv) {
 	test_int();
 	test_visit();
-	test_builder();
 	test_algorithms();
 	return 0;
 }
