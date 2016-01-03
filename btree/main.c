@@ -20,7 +20,12 @@ int main(int argc, char ** argv){
 	k = start_key;
 	for ( ; k<end_key ; ++k)
 		assert(btree_find(root, k));
-	printf("elements: %i, depth: %i\n", btree_count(root), btree_depth(root));
+	int count = btree_count(root);
+	printf("elements: %i, depth: %i\n", count, btree_depth(root));
+	root = btree_remove(root, start_key);
+	root = btree_remove(root, (start_key + end_key) / 2);
+	root = btree_remove(root, end_key - 1);
+	assert(btree_count(root) == count - 3);
 	btree_free(root);
 	return 0;
 }

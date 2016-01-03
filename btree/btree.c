@@ -126,3 +126,30 @@ static btree_t* _btree_rebalance(btree_t* root) {
 	}
 	return root;
 }
+
+btree_t* btree_remove(btree_t* root, const long key){
+	if (root == 0)
+		return 0;
+	if (root->key == key) {
+		btree_t* left = root->left;
+		btree_t* right = root->right;
+		root->left = 0;
+		root->right = 0;
+		btree_free(root);
+		if (left == 0)
+			root = right;
+		else if (right == 0)
+			root = left;
+		else
+			root = btree_insert_node(left, right);
+	} else if (root->key < key){
+		root->right = btree_remove(root->right, key);
+	} else {
+		root->left = btree_remove(root->left, key);
+	}
+	return root;
+}
+
+btree_t* btree_remove_node(btree_t* root, btree_t* node){
+	return btree_remove(root, node->key);
+}
