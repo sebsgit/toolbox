@@ -15,8 +15,8 @@ namespace cuwr{
         Format_Rgba32,
         Format_invalid
 	};
-	
-	class Image{
+
+	class Image : public ContextEntity{
 	public:
 
         static void maxImageSize(const cuwr::Gpu& gpu,

@@ -6,10 +6,6 @@
 #include <QTime>
 
 int main(int argc, char ** argv){
-	if (cuwr::init() != 0){
-		std::cout << "cant init cuda!\n";
-		exit(0);
-	}
     size_t w,h;
     cuwr::Image::maxImageSize(cuwr::defaultGpu(),&w,&h);
     std::cout << "max image size: " << w << " x " << h << '\n';

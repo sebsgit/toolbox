@@ -41,7 +41,7 @@ namespace cuwr{
         compares adjacent rectangular blocks of pixels on two images to
         estimate the motion of image elements
      */
-    class MotionEstimator{
+    class MotionEstimator : public ContextEntity{
     public:
         enum search_algorithm_t{
             Search_Exhaustive,
@@ -71,4 +71,3 @@ namespace cuwr{
 }
 
 #endif // CUWR_MOTION_ESTIMATOR_H
-

@@ -9,7 +9,7 @@ namespace cuwr{
         static cuwr::function_t copy;
         static cuwr::result_t init_module(){
             if (img_module.isLoaded() == false){
-                const cuwr::result_t err = img_module.load("cuwr_imgutils.ptx");
+                const cuwr::result_t err = img_module.loadFile("cuwr_imgutils.ptx");
                 if (err == cuwr::CUDA_SUCCESS_){
                     priv::swap_rgb = img_module.function("cuwr_swap_rgb");
                     priv::set_pixels = img_module.function("cuwr_set_pixels");
@@ -40,7 +40,8 @@ namespace cuwr{
                  const size_t height,
                  const size_t widthStep,
                  const image_format_t fmt)
-        :format_(fmt)
+        :ContextEntity()
+        ,format_(fmt)
     {
         if (cuwr::result_t res = priv::init_module()){
             throw Exception(res);
@@ -55,7 +56,8 @@ namespace cuwr{
         }
     }
     Image::Image(const Image &other)
-        :header_(other.header_)
+        :ContextEntity()
+        ,header_(other.header_)
         ,data_(other.data_)
         ,format_(other.format_)
         ,offset_(0)

@@ -12,18 +12,18 @@
 
 
 namespace cuwr{
-	
+
 	namespace priv{
 		#ifdef _WIN32
 			typedef HMODULE dplibhandle_priv_t_;
 		#elif defined __linux__
 			typedef void * dplibhandle_priv_t_;
 		#endif
-		
+
 		static std::set<std::string> libcu_searchpath;
 		static dplibhandle_priv_t_ libcu_handle;
 		static cuwr::Gpu * libcu_default_gpu = 0;
-		
+
         inline void * dp_load(const char * path){
 			#ifdef _WIN32
 				return LoadLibraryA(path);
@@ -64,7 +64,7 @@ namespace cuwr{
 				#endif
 			}
 		}
-		
+
         inline int locate_cuda_rt(std::string& out_path){
 			#ifdef __linux__
 				const std::string lname = "libcuda.so";
@@ -81,7 +81,7 @@ namespace cuwr{
 			}
 			return -1;
 		}
-		
+
 		template <typename R, typename... Arg>
 		void load_func(void * lib_handle, std::function< R (Arg...) > & fc, const char * fname){
 			#ifdef __linux__
@@ -95,7 +95,7 @@ namespace cuwr{
 			}
 		}
 	}
-	
+
 	/* initialization */
 	std::function<result_t(int)> cuInit;
 	/* error handling */
@@ -119,6 +119,7 @@ namespace cuwr{
 	std::function<result_t(context_t)> cuCtxSetCurrent;
 	/* module management */
 	std::function<result_t(module_t*,const char *)> cuModuleLoad;
+	std::function<result_t(module_t*,const void *)> cuModuleLoadData;
 	std::function<result_t(function_t*,module_t,const char*)> cuModuleGetFunction;
 	std::function<result_t(module_t)> cuModuleUnload;
 	/* memory management */
@@ -147,10 +148,10 @@ namespace cuwr{
     std::function<result_t(stream_t,event_t,unsigned int)> cuStreamWaitEvent;
 	/* execution control */
 	std::function<result_t(function_t,
-						 unsigned int, unsigned int, unsigned int, 
+						 unsigned int, unsigned int, unsigned int,
 					     unsigned int, unsigned int, unsigned int,
-					     unsigned int, 
-					     stream_t, 
+					     unsigned int,
+					     stream_t,
 					     void **,
 					     void **)> cuLaunchKernel;
     /* occupancy */
@@ -170,7 +171,7 @@ namespace cuwr{
     void addSearchPath(const std::string& path){
 		priv::libcu_searchpath.insert(path);
 	}
-	
+
 	std::string tostr(const result_t errCode){
 		std::string result;
 		const char * ptr = nullptr;
@@ -226,11 +227,12 @@ namespace cuwr{
 				CU_LD(cuCtxDestroy)
 				CU_LD(cuCtxGetCurrent)
 				CU_LD(cuCtxSetCurrent)
-				
+
 				CU_LD(cuModuleLoad)
+				CU_LD(cuModuleLoadData)
 				CU_LD(cuModuleGetFunction)
 				CU_LD(cuModuleUnload)
-				
+
                 CU_LD(cuMemGetInfo)
 				CU_LD(cuMemAlloc)
                 CU_LD(cuMemAllocHost)
@@ -296,7 +298,7 @@ namespace cuwr{
 			priv::libcu_handle=0;
 		}
 	}
-	
+
     cuwr::result_t launch_kernel(cuwr::function_t fn, const KernelLaunchParams& params){
 		return cuwr::cuLaunchKernel(fn,params.gridDimX_,params.gridDimY_,params.gridDimZ_,
 									   params.blockDimX_,params.blockDimY_,params.blockDimZ_,
@@ -305,5 +307,5 @@ namespace cuwr{
 									params.params_.empty() ? 0 : (void**)&params.params_[0],
 									params.extra_.empty() ? 0 : (void**)&params.extra_[0]);
 	}
-	
+
 }
