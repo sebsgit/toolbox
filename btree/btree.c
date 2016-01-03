@@ -13,6 +13,16 @@ btree_t* btree_new(const long key) {
 	btree_t* result = (btree_t*)malloc(sizeof(btree_t));
 	result->left = 0;
 	result->right = 0;
+	result->data = 0;
+	result->key = key;
+	return result;
+}
+
+btree_t* btree_new_with_data(const long key, const void* data) {
+	btree_t* result = (btree_t*)malloc(sizeof(btree_t));
+	result->left = 0;
+	result->right = 0;
+	result->data = (void*)data;
 	result->key = key;
 	return result;
 }
@@ -23,6 +33,15 @@ void btree_free(btree_t* root) {
 		btree_free(root->left);
 	if (root->right)
 		btree_free(root->right);
+	free(root);
+}
+void btree_free_with_callback(btree_t* root, void (*func)(void*)) {
+	assert(root);
+	if (root->left)
+		btree_free_with_callback(root->left, func);
+	if (root->right)
+		btree_free_with_callback(root->right, func);
+	func(root->data);
 	free(root);
 }
 
@@ -75,13 +94,11 @@ btree_t* btree_insert(btree_t* root, const long key, const void* data) {
 	return btree_insert_node(root, node);
 }
 
-static btree_t* _btree_rebalance(btree_t*);
-
 btree_t* btree_insert_node(btree_t* root, btree_t* node) {
 	root = _btree_insert_node(root, node);
-	root->left = _btree_rebalance(root->left);
-	root->right = _btree_rebalance(root->right);
-	return _btree_rebalance(root);
+	root->left = btree_rebalance(root->left);
+	root->right = btree_rebalance(root->right);
+	return btree_rebalance(root);
 }
 
 // replace root with right child
@@ -108,7 +125,7 @@ static btree_t* _btree_rotate_right(btree_t* root) {
 	return root;
 }
 
-static btree_t* _btree_rebalance(btree_t* root) {
+btree_t* btree_rebalance(btree_t* root) {
 	if (!root)
 		return root;
 	const int depth_left = btree_depth(root->left);
@@ -152,4 +169,31 @@ btree_t* btree_remove(btree_t* root, const long key){
 
 btree_t* btree_remove_node(btree_t* root, btree_t* node){
 	return btree_remove(root, node->key);
+}
+
+btree_t* btree_remove_with_callback(btree_t* root, const long key, void (*func)(void*)){
+	if (root == 0)
+		return 0;
+	if (root->key == key) {
+		btree_t* left = root->left;
+		btree_t* right = root->right;
+		root->left = 0;
+		root->right = 0;
+		btree_free_with_callback(root, func);
+		if (left == 0)
+			root = right;
+		else if (right == 0)
+			root = left;
+		else
+			root = btree_insert_node(left, right);
+	} else if (root->key < key){
+		root->right = btree_remove_with_callback(root->right, key, func);
+	} else {
+		root->left = btree_remove_with_callback(root->left, key, func);
+	}
+	return root;
+}
+
+btree_t* btree_remove_node_with_callback(btree_t* root, btree_t* node, void (*func)(void*)){
+	return btree_remove_with_callback(root, node->key, func);
 }
