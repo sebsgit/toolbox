@@ -8,13 +8,12 @@ extern "C" {
 #define btree_set_key(tree, value) (tree)->key = (long)(value)
 #define btree_key(tree) (tree)->key
 
-struct btree_t_ {
+typedef struct btree_t_ {
 	void* data;
 	long key;
 	struct btree_t_* left;
 	struct btree_t_* right;
-};
-typedef struct btree_t_ btree_t;
+} btree_t;
 
 extern btree_t* btree_new(const long key);
 extern btree_t* btree_new_with_data(const long key, const void* data);

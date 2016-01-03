@@ -5,6 +5,10 @@
 //TODO cache tree depth
 //TODO BFS
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 static int max(int a, int b) {
 	return a > b ? a : b;
 }
@@ -197,3 +201,7 @@ btree_t* btree_remove_with_callback(btree_t* root, const long key, void (*func)(
 btree_t* btree_remove_node_with_callback(btree_t* root, btree_t* node, void (*func)(void*)){
 	return btree_remove_with_callback(root, node->key, func);
 }
+
+#ifdef __cplusplus
+}
+#endif
