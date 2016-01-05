@@ -18,7 +18,7 @@ static void test_pool() {
 
 static void benchmark_frequent_allocs() {
 	srand(time(0));
-	const size_t alloc_size = 1024*1024*512;
+    const size_t alloc_size = 1024*1024*64;
 	const int num_allocations = 1000;
 	int count=0;
 	clock_t start = clock();

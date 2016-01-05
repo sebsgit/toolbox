@@ -1,7 +1,7 @@
 CC=gcc
 CFLAGS+=-std=c99 -Wall -pedantic
 LIBS+=
-LDFLAGS+=
+LDFLAGS+= -Wl,--large-address-aware
 CORE_OBJ=
 RM=rm -f
 TARGET=a.out
