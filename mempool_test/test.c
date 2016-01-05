@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <time.h>
+#include <assert.h>
 #include "mempool.h"
 
 static void double_free_handler(void* block) {
@@ -11,6 +12,7 @@ static void test_pool() {
 	vpool_set_dobule_free_handler(double_free_handler);
 	double* d = (double*)vpool_malloc(sizeof(*d));
 	*d = 123;
+    assert(vpool_bytes_used() == sizeof(*d));
 	vpool_free(d);
 	vpool_free(d);
 	vpool_cleanup();
@@ -19,7 +21,7 @@ static void test_pool() {
 static void benchmark_frequent_allocs() {
 	srand(time(0));
     const size_t alloc_size = 1024*1024*64;
-	const int num_allocations = 1000;
+    const int num_allocations = 100000;
 	int count=0;
 	clock_t start = clock();
 	while (++count < num_allocations) {
@@ -58,6 +60,6 @@ static void benchmark_frequent_allocs() {
 
 int main(int argc, char ** argv){
 	test_pool();
-	benchmark_frequent_allocs();
+    benchmark_frequent_allocs();
 	return 0;
 }

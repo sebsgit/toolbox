@@ -1,11 +1,8 @@
 #include "mempool.h"
+#include "btree.h"
 #include <assert.h>
 
-// TODO
-// tree / hash of available allocations instead of list
-// - [size1, <list of blocks == size1>]
-// - [size2, <list of blocks == size2>]
-// ..
+//TODO remove global variables
 //TODO initialize with some memory for bookkeeping
 
 typedef void (*_vpool_double_free_callback)(void*);
@@ -102,37 +99,33 @@ static size_t _vpool_return_block_to_node(node_info_t* info, void* data) {
 }
 
 typedef struct {
-	node_info_t** info;
-	int count;
+    btree_t* alloc_data;
 	size_t size_left;
+    size_t size_used;
 } vpool_info_t;
 static void _vpool_init_pool(vpool_info_t* pool, size_t num_bytes) {
-	pool->info = 0;
-	pool->count = 0;
+    pool->alloc_data = 0;
 	pool->size_left = num_bytes;
+    pool->size_used = 0;
+}
+static void _vpool_node_cleanup_callback(void* raw) {
+    if (raw)
+        _vpool_cleanup_node((node_info_t*)raw);
 }
 static void _vpool_cleanup_pool(vpool_info_t* pool){
-	if (pool->info) {
-		int i=0;
-		for ( ; i<pool->count ; ++i){
-			_vpool_cleanup_node(pool->info[i]);
-			free(pool->info[i]);
-		}
-		free(pool->info);
-		pool->info = 0;
+    if (pool->alloc_data) {
+        btree_free_with_callback(pool->alloc_data, _vpool_node_cleanup_callback);
+        pool->alloc_data = 0;
 	}
-	pool->count = 0;
 	pool->size_left = 0;
+    pool->size_used = 0;
 }
 static node_info_t* _vpool_find_node(vpool_info_t* pool, size_t num_bytes) {
 	assert(pool);
-	if (pool->count) {
-		int i=0;
-		for ( ; i<pool->count ; ++i) {
-			assert(pool->info);
-			if (pool->info[i]->alloc_size == num_bytes)
-				return pool->info[i];
-		}
+    if (pool->alloc_data) {
+        btree_t* node = btree_find(pool->alloc_data, num_bytes);
+        if (node)
+            return (node_info_t*)node->data;
 	}
 	return 0;
 }
@@ -140,14 +133,11 @@ static node_info_t* _vpool_add_node(vpool_info_t* pool, size_t num_bytes) {
 	node_info_t* result = (node_info_t*)malloc(sizeof(node_info_t));
 	_vpool_init_node(result);
 	result->alloc_size = num_bytes;
-	if (!pool->info) {
-		pool->info = (node_info_t**)malloc(sizeof(node_info_t*));
-		pool->count = 1;
+    if (!pool->alloc_data) {
+        pool->alloc_data = btree_new_with_data(num_bytes, result);
 	} else {
-		++pool->count;
-		pool->info = (node_info_t**)realloc(pool->info, pool->count * sizeof(node_info_t*));
+        pool->alloc_data = btree_insert(pool->alloc_data, num_bytes, result);
 	}
-	pool->info[pool->count - 1] = result;
 	return result;
 }
 
@@ -168,21 +158,40 @@ static void _vpool_insert_allocation(vpool_info_t* pool, void* block, size_t num
 			node = _vpool_add_node(pool, num_bytes);
 		_vpool_add_to_node(node, block);
 		pool->size_left -= num_bytes;
+        pool->size_used += num_bytes;
 	}
 }
 
+//TODO change this after support for iteration in tree
+
+static size_t _last_result = 0;
+static void* _last_block = 0;
+
+static void _vpool_for_each(btree_t* root, void (*callback)(void*)) {
+    if (root) {
+        if (_last_result == 0)
+            callback(root->data);
+        if (_last_result == 0)
+            _vpool_for_each(root->left, callback);
+        if (_last_result == 0)
+            _vpool_for_each(root->right, callback);
+    }
+}
+static void _vpool_node_search(void* raw) {
+    if (raw) {
+        node_info_t* node = (node_info_t*)raw;
+        _last_result = _vpool_return_block_to_node(node, _last_block);
+    }
+}
 static size_t _vpool_return_to_pool(vpool_info_t* pool, void* block) {
 	assert(pool);
 	assert(block);
-	if (pool->count) {
-		int i=0;
-		for ( ; i<pool->count ; ++i) {
-			size_t size = _vpool_return_block_to_node(pool->info[i], block);
-			if (size > 0)
-				return size;
-		}
+    _last_result = 0;
+    if (pool->alloc_data) {
+        _last_block = block;
+        _vpool_for_each(pool->alloc_data, _vpool_node_search);
 	}
-	return 0;
+    return _last_result;
 }
 
 static vpool_info_t vpool;
@@ -191,6 +200,14 @@ int vpool_init(size_t num_bytes) {
 	assert(num_bytes > 0);
 	_vpool_init_pool(&vpool, num_bytes);
 	return 0;
+}
+
+size_t vpool_bytes_free() {
+    return vpool.size_left;
+}
+
+size_t vpool_bytes_used() {
+    return vpool.size_used;
 }
 
 void* vpool_malloc(size_t num_bytes) {
