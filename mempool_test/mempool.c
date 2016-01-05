@@ -2,7 +2,6 @@
 #include "btree.h"
 #include <assert.h>
 
-//TODO remove global variables
 //TODO initialize with some memory for bookkeeping
 
 typedef void (*_vpool_double_free_callback)(void*);
@@ -93,9 +92,9 @@ static void* _vpool_get_from_node(node_info_t* node) {
 	assert(node);
 	return _vpool_get_allocation_block(&node->allocs);
 }
-static size_t _vpool_return_block_to_node(node_info_t* info, void* data) {
+static int _vpool_return_block_to_node(node_info_t* info, void* data) {
 	assert(info);
-	return _vpool_return_block(&info->allocs, data) ? info->alloc_size : 0;
+    return _vpool_return_block(&info->allocs, data);
 }
 
 typedef struct {
@@ -160,34 +159,31 @@ static void _vpool_insert_allocation(vpool_info_t* pool, void* block, size_t num
 
 //TODO change this after support for iteration in tree
 
-static size_t _last_result = 0;
-static void* _last_block = 0;
-
-static void _vpool_for_each(btree_t* root, void (*callback)(void*)) {
+static int _vpool_for_each(btree_t* root, int (*callback)(void*, void*), void* user_data) {
+    int result = 0;
     if (root) {
-        if (_last_result == 0)
-            callback(root->data);
-        if (_last_result == 0)
-            _vpool_for_each(root->left, callback);
-        if (_last_result == 0)
-            _vpool_for_each(root->right, callback);
+        result = callback(root->data, user_data);
+        if (result == 0)
+            result = _vpool_for_each(root->left, callback, user_data);
+        if (result == 0)
+            _vpool_for_each(root->right, callback, user_data);
     }
+    return result;
 }
-static void _vpool_node_search(void* raw) {
+static int _vpool_node_search(void* raw, void* block) {
     if (raw) {
         node_info_t* node = (node_info_t*)raw;
-        _last_result = _vpool_return_block_to_node(node, _last_block);
+        return _vpool_return_block_to_node(node, block);
     }
+    return 0;
 }
-static size_t _vpool_return_to_pool(vpool_info_t* pool, void* block) {
+static int _vpool_return_to_pool(vpool_info_t* pool, void* block) {
 	assert(pool);
 	assert(block);
-    _last_result = 0;
     if (pool->alloc_data) {
-        _last_block = block;
-        _vpool_for_each(pool->alloc_data, _vpool_node_search);
+        return _vpool_for_each(pool->alloc_data, _vpool_node_search, block);
 	}
-    return _last_result;
+    return 0;
 }
 
 static vpool_info_t vpool;
