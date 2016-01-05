@@ -133,11 +133,7 @@ static node_info_t* _vpool_add_node(vpool_info_t* pool, size_t num_bytes) {
 	node_info_t* result = (node_info_t*)malloc(sizeof(node_info_t));
 	_vpool_init_node(result);
 	result->alloc_size = num_bytes;
-    if (!pool->alloc_data) {
-        pool->alloc_data = btree_new_with_data(num_bytes, result);
-	} else {
-        pool->alloc_data = btree_insert(pool->alloc_data, num_bytes, result);
-	}
+    pool->alloc_data = btree_insert(pool->alloc_data, num_bytes, result);
 	return result;
 }
 

@@ -76,6 +76,8 @@ btree_t* btree_find(const btree_t* root, const long key) {
 }
 
 static btree_t* _btree_insert_node(btree_t* root, btree_t* node) {
+    if (root == 0)
+        return node;
 	if (root->key < node->key) {
 		if (root->right == 0) {
 			root->right = node;
