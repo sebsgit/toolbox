@@ -18,6 +18,8 @@ typedef struct btree_t_ {
 extern btree_t* btree_new(const long key);
 extern btree_t* btree_new_with_data(const long key, const void* data);
 extern btree_t* btree_find(const btree_t* root, const long key);
+extern int btree_for_each(btree_t* root, int (*callback)(void*));
+extern int btree_for_each_with_data(btree_t* root, int (*callback)(void*, void*), void* user_data);
 extern btree_t* btree_insert(btree_t* root, const long key, const void* data);
 extern btree_t* btree_insert_node(btree_t* root, btree_t* node);
 extern btree_t* btree_remove(btree_t* root, const long key);

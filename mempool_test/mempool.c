@@ -157,19 +157,6 @@ static void _vpool_insert_allocation(vpool_info_t* pool, void* block, size_t num
 	}
 }
 
-//TODO change this after support for iteration in tree
-
-static int _vpool_for_each(btree_t* root, int (*callback)(void*, void*), void* user_data) {
-    int result = 0;
-    if (root) {
-        result = callback(root->data, user_data);
-        if (result == 0)
-            result = _vpool_for_each(root->left, callback, user_data);
-        if (result == 0)
-            _vpool_for_each(root->right, callback, user_data);
-    }
-    return result;
-}
 static int _vpool_node_search(void* raw, void* block) {
     if (raw) {
         node_info_t* node = (node_info_t*)raw;
@@ -181,7 +168,7 @@ static int _vpool_return_to_pool(vpool_info_t* pool, void* block) {
 	assert(pool);
 	assert(block);
     if (pool->alloc_data) {
-        return _vpool_for_each(pool->alloc_data, _vpool_node_search, block);
+        return btree_for_each_with_data(pool->alloc_data, _vpool_node_search, block);
 	}
     return 0;
 }

@@ -75,6 +75,30 @@ btree_t* btree_find(const btree_t* root, const long key) {
 	return result;
 }
 
+int btree_for_each(btree_t* root, int (*callback)(void*)) {
+    int result = 0;
+    if (root) {
+        result = callback(root->data);
+        if (result == 0)
+            result = btree_for_each(root->left, callback);
+        if (result == 0)
+            result = btree_for_each(root->right, callback);
+    }
+    return result;
+}
+
+int btree_for_each_with_data(btree_t* root, int (*callback)(void*, void*), void* user_data) {
+    int result = 0;
+    if (root) {
+        result = callback(root->data, user_data);
+        if (result == 0)
+            result = btree_for_each_with_data(root->left, callback, user_data);
+        if (result == 0)
+            result = btree_for_each_with_data(root->right, callback, user_data);
+    }
+    return result;
+}
+
 static btree_t* _btree_insert_node(btree_t* root, btree_t* node) {
     if (root == 0)
         return node;
