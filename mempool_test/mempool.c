@@ -158,19 +158,12 @@ static void _vpool_insert_allocation(vpool_info_t* pool, void* block, size_t num
 }
 
 static int _vpool_node_search(void* raw, void* block) {
-    if (raw) {
-        node_info_t* node = (node_info_t*)raw;
-        return _vpool_return_block_to_node(node, block);
-    }
-    return 0;
+    assert(raw);
+    return _vpool_return_block_to_node((node_info_t*)raw, block);
 }
 static int _vpool_return_to_pool(vpool_info_t* pool, void* block) {
 	assert(pool);
-	assert(block);
-    if (pool->alloc_data) {
-        return btree_for_each_with_data(pool->alloc_data, _vpool_node_search, block);
-	}
-    return 0;
+    return btree_for_each_with_data(pool->alloc_data, _vpool_node_search, block);
 }
 
 static vpool_info_t vpool;
