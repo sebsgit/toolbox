@@ -1,0 +1,57 @@
+*** basic vi commands ***
+
+by default, vi starts in 'command' mode, some commands are:
+i - insert text to that starts to the left of cursor
+I - insert text at the begginning of current line
+a - add text at cursor position
+A - add at end of current line
+o - open line below for editing
+O - open line above for editing
+
+to go back to 'command' mode from 'insert' mode, press ESC
+
+*** navigation ***
+
+use arrow keys to navigate (or use kljh keys) 
+w,W - moves by word
+b,B - moves by word backwards
+0 - moves to the end of line
+$ - moves to the beginning of line
+H,M,L - screen navigation (top, middle, bottom)
+
+*** editing ***
+x - delete char after cursor
+X - delete before cursor
+d<?> - delete something
+c<?> - change something
+y<?> - copy something
+ <?>: l-letter, w - word, d - line
+can be preceeeded by number, for example
+3dl - will delete three chars
+4yw - will copy 4 words
+
+p,P - paste text
+u - undo
+crtl+R - redo
+ctrl+G - display file name
+
+*** skipping ***
+ctrl+ f, b - page forward, backward
+ctrl +d,u  - half page forward, backward 
+G - go to last line
+<?>G - go to line number
+
+*** misc ***
+:!<command> - run command from 'command' mode
+searching - type / to search forward, ? - search backward
+you can use regular expressions
+n - search next, N - search previous
+:s/text/other - replace text in current line
+:g/text/s//other/g - relpace text in file
+
+
+*** saving and exiting ***
+:w - save changes
+:wq - save and exit
+:q - quit but only when there are no changes 
+:q! - force quit
