@@ -5,4 +5,4 @@ implementation of various ciphering tools in C:
 - sha-1
 
 //
-core functionality works ok
+moved to https://github.com/sebsgit/clc.git
