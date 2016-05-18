@@ -71,7 +71,7 @@ static void dvz_ppm3_save_canvas(dvz_ppm3_canvas_t* canvas, FILE* file) {
 	for (uint32_t y=0 ; y<canvas->height ; ++y) {
 		for (uint32_t x=0 ; x<canvas->height ; ++x) {
 			const dvz_rgb_t color = canvas->data[y * canvas->width + x];
-			fprintf(file, "%u %u %u ", color.r, color.b, color.g);
+			fprintf(file, "%u %u %u ", color.r, color.g, color.b);
 		}
 		fprintf(file, "\n");
 	}
@@ -167,9 +167,8 @@ static void dvz_ppm3_draw_text(dvz_ppm3_painter_t* painter, const uint32_t baseX
 	}
 }
 
-void dvz_render_ppm(const dvz_context_t ctx, const uint32_t w, const uint32_t h, const char *path) {
-	assert(ctx);
-	assert(path);
+/*
+static void test_painter(uint32_t w, uint32_t h, const char* path) {
 	dvz_ppm3_canvas_t* canvas = dvz_create_ppm_canvas(w, h);
 	dvz_pen_t pen = { {255, 0, 255}, 10 };
 	dvz_ppm3_painter_t painter = {canvas, pen};
@@ -186,6 +185,115 @@ void dvz_render_ppm(const dvz_context_t ctx, const uint32_t w, const uint32_t h,
 	dvz_ppm3_save_canvas(canvas, file);
 	fclose(file);
 	dvz_free_ppm_canvas(canvas);
+}
+*/
+
+typedef struct {
+	dvz_node_id_t node;
+	dvz_point2d_t center;
+	dvz_point2d_t size;
+	dvz_rgb_t color;
+} dvz_render_node_t;
+
+static dvz_point2d_t dvz_get_render_node_output_pin_pos(const dvz_render_node_t* node, const uint32_t n, const uint32_t maxNodes) {
+	assert(node);
+	const uint32_t top = node->center.y - node->size.y / 2;
+	const uint32_t offset = node->size.y / (maxNodes + 1);
+	return dvz_point(node->center.x + node->size.x / 2, top + offset * (n + 1));
+}
+
+static dvz_point2d_t dvz_get_render_node_input_pin_pos(const dvz_render_node_t* node, const uint32_t n, const uint32_t maxNodes) {
+	assert(node);
+	const uint32_t top = node->center.y - node->size.y / 2;
+	const uint32_t offset = node->size.y / (maxNodes + 1);
+	return dvz_point(node->center.x - node->size.x / 2, top + offset * (n + 1));
+}
+
+static void dvz_ppm3_draw_node(dvz_ppm3_painter_t* painter, const dvz_render_node_t* node) {
+	assert(painter);
+	assert(node);
+	const uint32_t numInputPins = dvz_get_node_input_pin_count(node->node);
+	const uint32_t numOutputPins = dvz_get_node_output_pin_count(node->node);
+	const char* text = dvz_get_node_name(node->node);
+	const uint32_t pinSize = 10;
+	painter->pen.color = node->color;
+	dvz_ppm3_draw_rect(painter, node->center.x, node->center.y, node->size.x, node->size.y);
+	painter->pen.color = dvz_rgb(255, 0, 0);
+	for (uint32_t i=0 ; i<numInputPins ; ++i) {
+		const dvz_point2d_t p = dvz_get_render_node_input_pin_pos(node, i, numInputPins);
+		dvz_ppm3_fill_rect(painter, p.x, p.y, pinSize, pinSize);
+	}
+	painter->pen.color = dvz_rgb(0, 255, 0);
+	for (uint32_t i=0 ; i<numOutputPins ; ++i) {
+		const dvz_point2d_t p = dvz_get_render_node_output_pin_pos(node, i, numOutputPins);
+		dvz_ppm3_fill_rect(painter, p.x, p.y, pinSize, pinSize);
+	}
+	dvz_ppm3_draw_text(painter,
+					   node->center.x - node->size.x / 2 + painter->pen.glyphWidth,
+					   node->center.y - node->size.y / 2 + painter->pen.glyphWidth * 3,
+					   text,
+					   strlen(text));
+}
+
+static dvz_render_node_t dvz_ppm3_draw_node_recursive(dvz_ppm3_painter_t *painter,
+										 const dvz_node_id_t id,
+										 const uint32_t centerX,
+										 const uint32_t centerY,
+										 const uint32_t baseWidth,
+										 const uint32_t baseHeight,
+										 const uint32_t margin)
+{
+	dvz_render_node_t node;
+	node.node = id;
+	if (id != 0) {
+		const uint32_t outputPins = dvz_get_node_output_pin_count(id);
+		const uint32_t maxPins = max(1, max(dvz_get_node_input_pin_count(id), outputPins));
+		node.center = dvz_point(centerX, centerY);
+		node.color = dvz_rgb(0, 0, 0);
+		node.size = dvz_point(baseWidth, baseHeight * maxPins);
+		dvz_ppm3_draw_node(painter, &node);
+		const uint32_t nextX = centerX + baseWidth + margin;
+		uint32_t outCount = 0;
+		for (uint32_t i=0 ; i<dvz_get_node_connection_count(id) ; ++i) {
+			const dvz_connection_id_t conn = dvz_get_node_connection(id, i);
+			const dvz_node_id_t target = dvz_get_connection_target(conn);
+			if (target != id) {
+				const dvz_render_node_t targetRenderNode = dvz_ppm3_draw_node_recursive(painter, target, nextX, centerY + outCount * (baseHeight + margin), baseWidth, baseHeight, margin);
+				if (targetRenderNode.node != 0) {
+					const uint32_t sourcePin = dvz_get_connection_source_pin(conn);
+					const uint32_t targetPin = dvz_get_connection_target_pin(conn);
+					const dvz_point2d_t p1 = dvz_get_render_node_output_pin_pos(&node, sourcePin, dvz_get_node_output_pin_count(node.node));
+					const dvz_point2d_t p2 = dvz_get_render_node_input_pin_pos(&targetRenderNode, targetPin, dvz_get_node_input_pin_count(targetRenderNode.node));
+					painter->pen.color = dvz_rgb(100, 100, 100);
+					dvz_ppm3_draw_line(painter, p1.x, p1.y, p2.x, p2.y);
+				}
+				++outCount;
+			}
+		}
+	}
+	return node;
+}
+
+void dvz_render_ppm(const dvz_context_t ctx, const uint32_t w, const uint32_t h, const char *path) {
+	assert(ctx);
+	assert(path);
+	assert(w > 0 && h > 0);
+	const uint32_t nodeCount = dvz_get_node_count(ctx);
+	if (nodeCount > 0) {
+		dvz_ppm3_canvas_t* canvas = dvz_create_ppm_canvas(w, h);
+		dvz_pen_t pen = { {255, 0, 255}, 8 };
+		dvz_ppm3_painter_t painter = {canvas, pen};
+		const uint32_t nodeMargin = max(w, h) / 20;
+		const uint32_t nodeWidth = (w - nodeMargin * nodeCount) / nodeCount;
+		const uint32_t nodeHeight = (h - nodeMargin * nodeCount) / (2 * nodeCount);
+		const dvz_node_id_t id = dvz_get_node(ctx, 0);
+		const uint32_t currentX = nodeWidth / 2 + nodeMargin;
+		dvz_ppm3_draw_node_recursive(&painter, id, currentX, nodeHeight / 2 + nodeMargin, nodeWidth, nodeHeight, nodeMargin);
+		FILE* file = fopen(path, "wb");
+		dvz_ppm3_save_canvas(canvas, file);
+		fclose(file);
+		dvz_free_ppm_canvas(canvas);
+	}
 }
 
 
@@ -224,7 +332,34 @@ static dvz_glyph_data_t default_font[] = {
 	{'W', { {0.0f, 1.0f}, {0.0f, 0.0f}, {0.5f, 0.0f}, {0.5f, 0.5f}, {0.5f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f} }, 7 },
 	{'X', { {0.0f, 0.0f}, {1.0f, 1.0f}, {0.5f, 0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f} }, 5 },
 	{'Y', { {0.0f, 1.0f}, {0.5f, 0.5f}, {0.5f, 0.0f}, {0.5f, 0.5f}, {1.0f, 1.0f} }, 5 },
-	{'Z', { {0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f} }, 4 }
+	{'Z', { {0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f} }, 4 },
+	//TODO
+	{'a', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.5f}, {0.0f, 0.5f} }, 6 },
+	{'b', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.5f}, {0.5f, 0.5f}, {1.0f, 0.5f}, {1.0f, 0.0f}, {0.0f, 0.0f} }, 8 },
+	{'c', { {1.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f} }, 4 },
+	{'d', { {0.0f, 0.0f}, {0.0f, 1.0f}, {0.5f, 1.0f}, {1.0f, 0.75f}, {1.0f, 0.25f}, {0.5f, 0.0f}, {0.0f, 0.0f} }, 7 },
+	{'e', { {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.5f}, {0.5f, 0.5f}, {0.0f, 0.5f}, {0.0f, 0.0f}, {1.0f, 0.0f} }, 7 },
+	{'f', { {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.5f}, {0.5f, 0.5f}, {0.0f, 0.5f}, {0.0f, 0.0f} }, 6 },
+	{'g', { {1.0f, 1.0f}, {0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.5f}, {0.5f, 0.5f} }, 6 },
+	{'h', { {0.0f, 1.0f}, {0.0f, 0.0f}, {0.0f, 0.5f}, {1.0f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f} }, 6 },
+	{'i', { {0.5f, 0.0f}, {0.5f, 1.0f} }, 2 },
+	{'j', { {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.25f}, {0.5f, 0.0f}, {0.0f, 0.25f}, {0.0f, 0.5f} }, 6 },
+	{'k', { {0.0f, 1.0f}, {0.0f, 0.0f}, {0.0f, 0.5f}, {1.0f, 1.0f}, {0.0f, 0.5f}, {1.0f, 0.0f} }, 6 },
+	{'l', { {0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f} }, 3 },
+	{'m', { {0.0f, 0.0f}, {0.0f, 1.0f}, {0.5f, 0.5f}, {1.0f, 1.0f}, {1.0f, 0.0f} }, 5 },
+	{'n', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 1.0f} }, 4 },
+	{'o', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.0f, 0.0f} }, 5 },
+	{'p', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.5f}, {0.0f, 0.5f} }, 5 },
+	{'q', { {1.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f}, {0.5f, 0.25f} }, 6 },
+	{'r', { {0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.5f}, {0.0f, 0.5f}, {1.0f, 0.0f} }, 6 },
+	{'s', { {1.0f, 1.0f}, {0.5f, 1.0f}, {0.0f, 0.75f}, {1.0f, 0.25f}, {0.5f, 0.0f}, {0.0f, 0.0f} }, 6 },
+	{'t', { {0.5f, 0.0f}, {0.5f, 1.0f}, {0.0f, 1.0f}, {1.0f, 1.0f} }, 4 },
+	{'u', { {0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f} }, 4 },
+	{'v', { {0.0f, 1.0f}, {0.0f, 0.5f}, {0.5f, 0.0f}, {1.0f, 0.5f}, {1.0f, 1.0f} }, 5 },
+	{'w', { {0.0f, 1.0f}, {0.0f, 0.0f}, {0.5f, 0.0f}, {0.5f, 0.5f}, {0.5f, 0.0f}, {1.0f, 0.0f}, {1.0f, 1.0f} }, 7 },
+	{'x', { {0.0f, 0.0f}, {1.0f, 1.0f}, {0.5f, 0.5f}, {0.0f, 1.0f}, {1.0f, 0.0f} }, 5 },
+	{'y', { {0.0f, 1.0f}, {0.5f, 0.5f}, {0.5f, 0.0f}, {0.5f, 0.5f}, {1.0f, 1.0f} }, 5 },
+	{'z', { {0.0f, 1.0f}, {1.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f} }, 4 }
 };
 
 static dvz_glyph_data_t dvz_find_glyph(const char c) {

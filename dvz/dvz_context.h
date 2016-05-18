@@ -28,6 +28,8 @@ extern const char* dvz_get_node_name(const dvz_node_id_t);
 extern const void* dvz_get_node_data(const dvz_node_id_t);
 extern uint32_t dvz_get_node_connection_count(const dvz_node_id_t);
 extern dvz_connection_id_t dvz_get_node_connection(const dvz_node_id_t, const uint32_t n);
+extern uint32_t dvz_get_node_output_pin_count(const dvz_node_id_t);
+extern uint32_t dvz_get_node_input_pin_count(const dvz_node_id_t);
 extern dvz_connection_type_t dvz_get_connection_type(const dvz_connection_id_t id);
 extern dvz_node_id_t dvz_get_connection_source(const dvz_connection_id_t id);
 extern dvz_node_id_t dvz_get_connection_target(const dvz_connection_id_t id);

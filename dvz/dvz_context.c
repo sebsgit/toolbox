@@ -1,6 +1,7 @@
 #include "dvz_context.h"
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #ifndef DVZ_MAX_NODES
 #define DVZ_MAX_NODES (uint16_t)256
@@ -118,6 +119,18 @@ const char* dvz_get_node_name(const dvz_node_id_t id) {
 uint32_t dvz_get_node_connection_count(const dvz_node_id_t node_ptr) {
 	const dvz_node_impl_t* node = (const dvz_node_impl_t*)node_ptr;
 	return node ? node->usedConnectedTo : 0;
+}
+
+uint32_t dvz_get_node_output_pin_count(const dvz_node_id_t node_ptr) {
+	const dvz_node_impl_t* node = (const dvz_node_impl_t*)node_ptr;
+	assert(node);
+	return node->numOutputPins;
+}
+
+uint32_t dvz_get_node_input_pin_count(const dvz_node_id_t node_ptr) {
+	const dvz_node_impl_t* node = (const dvz_node_impl_t*)node_ptr;
+	assert(node);
+	return node->numInputPins;
 }
 
 dvz_connection_id_t dvz_get_node_connection(const dvz_node_id_t node_ptr, const uint32_t n) {
