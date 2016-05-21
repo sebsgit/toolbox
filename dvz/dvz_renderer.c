@@ -60,9 +60,24 @@ typedef struct {
 } dvz_pen_t;
 
 typedef struct {
+	dvz_node_id_t node;
+	dvz_point2d_t center;
+	dvz_point2d_t size;
+	dvz_rgb_t color;
+} dvz_render_node_t;
+
+typedef struct {
 	dvz_ppm3_canvas_t* canvas;
 	dvz_pen_t pen;
+	dvz_render_node_t nodes[256];
+	uint32_t usedNodes;
 } dvz_ppm3_painter_t;
+
+static void dvz_ppm3_painter_init(dvz_ppm3_painter_t* painter, dvz_ppm3_canvas_t* canvas, const dvz_pen_t pen) {
+	painter->usedNodes = 0;
+	painter->canvas = canvas;
+	painter->pen = pen;
+}
 
 static void dvz_ppm3_save_canvas(dvz_ppm3_canvas_t* canvas, FILE* file) {
 	assert(canvas);
@@ -213,13 +228,6 @@ static void test_painter(uint32_t w, uint32_t h, const char* path) {
 }
 */
 
-typedef struct {
-	dvz_node_id_t node;
-	dvz_point2d_t center;
-	dvz_point2d_t size;
-	dvz_rgb_t color;
-} dvz_render_node_t;
-
 static dvz_point2d_t dvz_get_render_node_output_pin_pos(const dvz_render_node_t* node, const uint32_t n, const uint32_t maxNodes) {
 	assert(node);
 	const uint32_t top = node->center.y - node->size.y / 2;
@@ -267,6 +275,10 @@ static dvz_render_node_t dvz_ppm3_draw_node_recursive(dvz_ppm3_painter_t *painte
 	dvz_render_node_t node;
 	node.node = id;
 	if (id != 0) {
+		for (uint32_t x = 0 ; x<painter->usedNodes ; ++x) {
+			if (painter->nodes[x].node == id)
+				return painter->nodes[x];
+		}
 		const uint32_t outputPins = dvz_get_node_output_pin_count(id);
 		const uint32_t maxPins = max(1, max(dvz_get_node_input_pin_count(id), outputPins));
 		node.center = dvz_point(centerX, centerY);
@@ -291,6 +303,8 @@ static dvz_render_node_t dvz_ppm3_draw_node_recursive(dvz_ppm3_painter_t *painte
 				++outCount;
 			}
 		}
+		painter->nodes[painter->usedNodes] = node;
+		painter->usedNodes++;
 	}
 	return node;
 }
@@ -303,7 +317,8 @@ void dvz_render_ppm(const dvz_context_t ctx, const uint32_t w, const uint32_t h,
 	if (nodeCount > 0) {
 		dvz_ppm3_canvas_t* canvas = dvz_create_ppm_canvas(w, h);
 		dvz_pen_t pen = { {255, 0, 255}, 8 };
-		dvz_ppm3_painter_t painter = {canvas, pen};
+		dvz_ppm3_painter_t painter;
+		dvz_ppm3_painter_init(&painter, canvas, pen);
 		const uint32_t nodeMargin = max(w, h) / 20;
 		const uint32_t nodeWidth = (w - nodeMargin * nodeCount) / nodeCount;
 		const uint32_t nodeHeight = (h - nodeMargin * nodeCount) / (2 * nodeCount);
