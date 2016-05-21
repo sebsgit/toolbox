@@ -154,16 +154,41 @@ static void dvz_ppm3_draw_character(dvz_ppm3_painter_t* painter, const uint32_t 
 
 static void dvz_ppm3_draw_text(dvz_ppm3_painter_t* painter, const uint32_t baseX, const uint32_t baseY, const char* text, const uint32_t count) {
 	assert(painter);
-	assert(text);
 	assert(baseX < painter->canvas->width);
 	assert(baseY < painter->canvas->height);
 	if (count > 0) {
+		assert(text);
 		const uint32_t spacing = 5;
 		uint32_t offset = 0;
 		for (uint32_t i=0 ; i<count ; ++i) {
 			dvz_ppm3_draw_character(painter, baseX + offset, baseY, text[i]);
 			offset += painter->pen.glyphWidth + spacing;
 		}
+	}
+}
+
+static void dvz_ppm3_draw_text_centered(dvz_ppm3_painter_t* painter, const dvz_point2d_t center, const dvz_point2d_t size, const char* text, const size_t len) {
+	assert(painter);
+	if (len > 0) {
+		assert(size.x < painter->canvas->width);
+		assert(size.y < painter->canvas->height);
+		assert(text);
+		const uint32_t spacing = 5;
+		const uint32_t margin = 3;
+		uint32_t glyphSpace = size.x / len;
+		uint32_t glyphHeight = min(size.y - margin, glyphSpace * 2);
+		glyphSpace = glyphHeight / 2;
+		if ((glyphSpace + spacing) * len + 2*margin > size.x) {
+			const uint32_t diff = (glyphSpace + spacing) * len + 2*margin - size.x;
+			const uint32_t toSubtract = max(diff / len, 1);
+			glyphSpace -= toSubtract;
+		}
+		glyphHeight = glyphSpace * 2;
+		const uint32_t textWidth = glyphSpace * len + spacing * (len - 1) + 2*margin;
+		const uint32_t baseX = center.x - textWidth / 2 + margin;
+		const uint32_t baseY = center.y + glyphHeight / 2;
+		painter->pen.glyphWidth = glyphSpace;
+		dvz_ppm3_draw_text(painter, baseX, baseY, text, len);
 	}
 }
 
@@ -228,11 +253,7 @@ static void dvz_ppm3_draw_node(dvz_ppm3_painter_t* painter, const dvz_render_nod
 		const dvz_point2d_t p = dvz_get_render_node_output_pin_pos(node, i, numOutputPins);
 		dvz_ppm3_fill_rect(painter, p.x, p.y, pinSize, pinSize);
 	}
-	dvz_ppm3_draw_text(painter,
-					   node->center.x - node->size.x / 2 + painter->pen.glyphWidth,
-					   node->center.y - node->size.y / 2 + painter->pen.glyphWidth * 3,
-					   text,
-					   strlen(text));
+	dvz_ppm3_draw_text_centered(painter, node->center, node->size, text, strlen(text));
 }
 
 static dvz_render_node_t dvz_ppm3_draw_node_recursive(dvz_ppm3_painter_t *painter,
