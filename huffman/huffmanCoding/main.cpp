@@ -10,30 +10,34 @@ namespace huffman{
 
 template <typename T>
 class binary_tree {
-public:
-	using ptr = std::shared_ptr<binary_tree>;
-
-	class dfs_const_iterator : public std::iterator<std::forward_iterator_tag, T> {
-	public:
-		dfs_const_iterator(const binary_tree* node = nullptr)
-			:dfs_const_iterator(nullptr, node)
+protected:
+	template <typename NodeType>
+	class dfs_iterator_base : public std::iterator<std::forward_iterator_tag, T> {
+		friend class binary_tree;
+		explicit dfs_iterator_base(NodeType node)
+			:dfs_iterator_base(nullptr, node)
 		{
 		}
-		dfs_const_iterator(const binary_tree* previous, const binary_tree* current)
+		dfs_iterator_base(NodeType previous, NodeType current)
 			: _previous(previous)
 			, _current(current)
+		{
+		}
+	public:
+		dfs_iterator_base()
+			:dfs_iterator_base(nullptr, nullptr)
 		{
 		}
 		const T operator* () const {
 			return _current->value();
 		}
-		bool operator != (const dfs_const_iterator& other) const {
+		bool operator != (const dfs_iterator_base& other) const {
 			return _current != other._current;
 		}
-		bool operator == (const dfs_const_iterator& other) const {
+		bool operator == (const dfs_iterator_base& other) const {
 			return !(*this != other);
 		}
-		dfs_const_iterator& operator++ () {
+		dfs_iterator_base& operator++ () {
 			if (_current->_left) {
 				_previous = _current;
 				_current = _current->_left.get();
@@ -41,8 +45,8 @@ public:
 				_previous = _current;
 				_current = _current->_right.get();
 			} else {
-				const binary_tree* root_node = _previous;
-				const binary_tree* result = nullptr;
+				NodeType root_node = _previous;
+				NodeType result = nullptr;
 				while (!result) {
 					if (!root_node)
 						break;
@@ -56,15 +60,40 @@ public:
 			}
 			return *this;
 		}
-		dfs_const_iterator operator++(int) const {
-			dfs_const_iterator result(_previous, _current);
+		dfs_iterator_base operator++(int) const {
+			dfs_iterator_base result(_previous, _current);
 			this->operator++();
 			return result;
 		}
-	private:
-		const binary_tree* _previous;
-		const binary_tree* _current;
+	protected:
+		NodeType _previous;
+		NodeType _current;
 	};
+public:
+	using ptr = std::shared_ptr<binary_tree>;
+	using dfs_const_iterator = dfs_iterator_base<const binary_tree*>;
+	class dfs_iterator : public dfs_iterator_base<binary_tree*> {
+	protected:
+		friend class binary_tree;
+		explicit dfs_iterator(binary_tree* node)
+			:dfs_iterator(nullptr, node)
+		{
+		}
+		dfs_iterator(binary_tree* previous, binary_tree* current)
+			: dfs_iterator_base<binary_tree*>(previous, current)
+		{
+		}
+	public:
+		dfs_iterator()
+			:dfs_iterator(nullptr, nullptr)
+		{
+		}
+		T& operator *() {
+			return dfs_iterator_base<binary_tree*>::_current->_data;
+		}
+	};
+	using iterator = dfs_iterator;
+	using const_iterator = dfs_const_iterator;
 
 	static ptr make_node() {
 		return ptr(new binary_tree);
@@ -99,12 +128,17 @@ public:
 		this->set_right(result);
 		return result;
 	}
-
-	dfs_const_iterator begin() const {
-		return dfs_const_iterator(this);
+	const_iterator cbegin() const {
+		return const_iterator(this);
 	}
-	dfs_const_iterator end() const {
-		return dfs_const_iterator(nullptr);
+	const_iterator cend() const {
+		return const_iterator(nullptr);
+	}
+	iterator begin() {
+		return iterator(this);
+	}
+	iterator end() const {
+		return iterator(nullptr);
 	}
 
 protected:
@@ -139,10 +173,14 @@ static void test_tree_iterator() {
 	assert(tree_order.at(2) == 3);
 	assert(tree_order.at(3) == 17);
 	assert(tree_order.at(4) == 12);
-	auto result = std::find_if(tree->begin(), tree->end(), [](int x) { return x == 1; });
+	auto result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 1; });
 	assert(*result == 1);
-	result = std::find_if(tree->begin(), tree->end(), [](int x) { return x == 12332; });
-	assert(result == tree->end());
+	result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 12332; });
+	assert(result == tree->cend());
+	for (auto &it : *tree)
+		it = 0;
+	for (auto it = tree->cbegin() ; it != tree->cend() ; ++it)
+		assert(*it == 0);
 }
 
 namespace huffman {
