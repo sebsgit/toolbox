@@ -3,8 +3,10 @@
 #include <memory>
 #include <algorithm>
 #include <cassert>
+#include <type_traits>
+#include <unordered_map>
 
-namespace huffman {
+namespace huffman{
 
 template <typename T>
 class binary_tree {
@@ -143,7 +145,33 @@ static void test_tree_iterator() {
 	assert(result == tree->end());
 }
 
+namespace huffman {
+	template <typename T, typename Real=float>
+	class probability_table {
+		static_assert(std::is_floating_point<Real>::value, "probability_table entry needs to have a floating point probability.");
+	public:
+		virtual ~probability_table() {}
+		virtual Real operator[] (const T& t) const = 0;
+	};
+	template <typename T, typename Real = float>
+	class probability_map : public probability_table<T, Real> {
+	public:
+		Real operator[] (const T& t) const override {
+			return _data.at(t);
+		}
+		Real& operator[] (const T& t) {
+			return _data[t];
+		}
+	private:
+		std::unordered_map<T, Real> _data;
+	};
+}
+
 int main(int argc, char *argv[]) {
 	test_tree_iterator();
+	huffman::probability_map<int, float> probs;
+	probs[1] = 0.14;
+	probs[2] = 0.44;
+	probs[3] = 0.42;
 	return 0;
 }
