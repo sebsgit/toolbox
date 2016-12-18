@@ -74,32 +74,35 @@ protected:
 	};
 
 	template <typename NodeType, template <typename...> class Container>
-	class iterator_base : public std::iterator<std::forward_iterator_tag, T> {
+	class read_only_iterator : public std::iterator<std::forward_iterator_tag, T> {
 		friend class binary_tree;
-		explicit iterator_base(NodeType current) {
+		using queue = iterator_backend_adapter<NodeType, Container>;
+		explicit read_only_iterator(NodeType current) {
 			if (current)
 				_visit_order.push(current);
+		}
+		explicit read_only_iterator(const queue& visit_queue)
+			: _visit_order(visit_queue) {
 		}
 
 	public:
 		const T operator*() const {
 			return _visit_order.first()->value();
 		}
-		bool operator!=(const iterator_base& other) const {
+		bool operator!=(const read_only_iterator& other) const {
 			return !(*this == other);
 		}
-		bool operator==(const iterator_base& other) const {
+		bool operator==(const read_only_iterator& other) const {
 			return this->_visit_order == other._visit_order;
 		}
-		iterator_base& operator++() {
+		read_only_iterator& operator++() {
 			if (_visit_order.empty() == false) {
 				_visit_order.split();
 			}
 			return *this;
 		}
-		iterator_base operator++(int)const {
-			iterator_base result(_visit_order.empty() ? nullptr : _visit_order.first());
-			result._visit_order = this->_visit_order;
+		read_only_iterator operator++(int)const {
+			read_only_iterator result(this->_visit_order);
 			this->operator++();
 			return result;
 		}
@@ -108,37 +111,27 @@ protected:
 		}
 
 	protected:
-		iterator_backend_adapter<NodeType, Container> _visit_order;
+		queue _visit_order;
+	};
+	template <typename NodeType, template <typename...> class Container>
+	class read_write_iterator : public read_only_iterator<NodeType, Container> {
+		friend class binary_tree;
+		explicit read_write_iterator(NodeType current)
+			: read_only_iterator<NodeType, Container>(current) {
+		}
+
+	public:
+		T& operator*() {
+			return read_only_iterator<NodeType, Container>::_visit_order.first()->_data;
+		}
 	};
 
 public:
 	using ptr = std::shared_ptr<binary_tree>;
-	using dfs_const_iterator = iterator_base<const binary_tree*, std::stack>;
-	using bfs_const_iterator = iterator_base<const binary_tree*, std::vector>;
-	class dfs_iterator : public iterator_base<binary_tree*, std::stack> {
-	protected:
-		friend class binary_tree;
-		explicit dfs_iterator(binary_tree* node)
-			: iterator_base<binary_tree*, std::stack>(node) {
-		}
-
-	public:
-		T& operator*() {
-			return iterator_base<binary_tree*, std::stack>::_visit_order.first()->_data;
-		}
-	};
-	class bfs_iterator : public iterator_base<binary_tree*, std::vector> {
-	protected:
-		friend class binary_tree;
-		explicit bfs_iterator(binary_tree* node)
-			: iterator_base<binary_tree*, std::vector>(node) {
-		}
-
-	public:
-		T& operator*() {
-			return iterator_base<binary_tree*, std::vector>::_visit_order.first()->_data;
-		}
-	};
+	using dfs_const_iterator = read_only_iterator<const binary_tree*, std::stack>;
+	using bfs_const_iterator = read_only_iterator<const binary_tree*, std::vector>;
+	using dfs_iterator = read_write_iterator<binary_tree*, std::stack>;
+	using bfs_iterator = read_write_iterator<binary_tree*, std::vector>;
 
 	using iterator = dfs_iterator;
 	using const_iterator = dfs_const_iterator;
@@ -220,7 +213,10 @@ public:
 protected:
 	binary_tree() {}
 	binary_tree(T&& d)
-		: _data(std::forward<T&&>(d)) {
+		: _data(std::move(d)) {
+	}
+	binary_tree(const T& d)
+		: _data(d) {
 	}
 
 private:
@@ -293,9 +289,8 @@ static void test_tree_iterator() {
 namespace huffman {
 template <typename T, typename Real = float>
 class probability_table {
-	static_assert(
-		std::is_arithmetic<Real>::value,
-		"probability_table entry needs to have an arithmetic probability.");
+	static_assert(std::is_arithmetic<Real>::value,
+				  "probability_table entry needs to have an arithmetic probability.");
 
 public:
 	using value_type = T;
