@@ -211,10 +211,10 @@ public:
 
 protected:
 	binary_tree() {}
-	binary_tree(T&& d)
+	explicit binary_tree(T&& d)
 		: _data(std::move(d)) {
 	}
-	binary_tree(const T& d)
+	explicit binary_tree(const T& d)
 		: _data(d) {
 	}
 

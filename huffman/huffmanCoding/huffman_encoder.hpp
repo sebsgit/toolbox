@@ -2,10 +2,64 @@
 
 #include "binary_tree.hpp"
 
+#include <functional>
 #include <sstream>
 #include <type_traits>
 #include <unordered_map>
-#include <vector>
+
+namespace huffman {
+class bitstream {
+public:
+	bitstream& operator<<(uint8_t bit) {
+		_data.push_back(bit ? true : false);
+		return *this;
+	}
+	bitstream& operator<<(const bitstream& other) {
+		for (auto b : other._data)
+			_data.push_back(b);
+		return *this;
+	}
+	bitstream& append(uint8_t bit) {
+		return this->operator<<(bit);
+	}
+	bitstream& prepend(uint8_t bit) {
+		_data.insert(_data.begin(), bit ? true : false);
+		return *this;
+	}
+	bitstream prefix(size_t count) const {
+		bitstream result;
+		int i = 0;
+		while (count--)
+			result << _data[i++];
+		return result;
+	}
+	void remove_front(size_t count) {
+		if (_data.size() >= count)
+			_data.erase(_data.begin(), _data.begin() + count);
+	}
+	uint8_t operator[](size_t index) const {
+		return _data[index];
+	}
+	std::string to_string() const {
+		std::stringstream ss;
+		for (auto b : _data)
+			ss << (b ? '1' : '0');
+		return ss.str();
+	}
+	bool operator==(const bitstream& other) const {
+		return _data == other._data;
+	}
+	size_t hash() const {
+		return std::hash<std::vector<bool>>()(_data);
+	}
+	size_t size() const {
+		return _data.size();
+	}
+
+private:
+	std::vector<bool> _data;
+};
+}
 
 namespace huffman {
 template <typename T, typename Real = float>
@@ -44,27 +98,46 @@ public:
 private:
 	std::unordered_map<T, Real> _data;
 };
+
 class code {
 public:
 	code& prepend(uint8_t bit) {
-		_data.insert(_data.begin(), bit);
+		_data.prepend(bit);
 		return *this;
 	}
 	std::string to_string() const {
-		std::stringstream result;
-		for (auto i : _data)
-			result << std::to_string(i);
-		return result.str();
+		return _data.to_string();
+	}
+	bitstream data() const {
+		return _data;
+	}
+	size_t size() const {
+		return _data.size();
+	}
+	bool operator==(const code& other) const {
+		return _data == other._data;
 	}
 
 private:
-	std::vector<uint8_t> _data;
+	bitstream _data;
 };
+
+class code_hash {
+public:
+	size_t operator()(const code& c) const {
+		return c.data().hash();
+	}
+};
+
+
 template <typename T, typename Real = float>
 class encoder {
 	using probability_map = probability_table<T, Real>;
 
 public:
+	encoder() {
+	}
+
 	void set_probability_table(const probability_map& table) {
 		_probabilities = table;
 		if (!_probabilities.empty())
@@ -72,6 +145,36 @@ public:
 	}
 	code get_code(const T& value) const {
 		return this->_codebook.at(value);
+	}
+	bitstream encode(const T* data, size_t size) const {
+		bitstream result;
+		for (size_t i = 0; i < size; ++i)
+			result << get_code(data[i]).data();
+		return result;
+	}
+	template <typename OutputIt>
+	void decode(const bitstream& stream, OutputIt output) const {
+		bitstream tmp = stream;
+		while (tmp.size() > 0) {
+			*output = this->decode_next(tmp);
+			++output;
+		}
+	}
+	T decode_next(bitstream& stream) const {
+		bitstream pref = stream.prefix(this->_min_code_length);
+		auto search = [&pref](const auto& p) { return p.first.data() == pref; };
+		auto it = std::find_if(_reverse_codebook.begin(), _reverse_codebook.end(), search);
+		while ((it == _reverse_codebook.end()) && pref.size() < stream.size()) {
+			auto next_index = pref.size();
+			pref << stream[next_index];
+			it = std::find_if(_reverse_codebook.begin(), _reverse_codebook.end(), search);
+		}
+		if (it != _reverse_codebook.end()) {
+			stream.remove_front(pref.size());
+			return it->second;
+		} else {
+			throw std::invalid_argument("can't find entry for code " + pref.to_string());
+		}
 	}
 
 protected:
@@ -111,13 +214,23 @@ protected:
 			data.push_back(root);
 		}
 		this->_codebook.clear();
+		this->_reverse_codebook.clear();
+		this->_min_code_length = std::numeric_limits<size_t>::max();
 		for (auto it = data[0]->bfs_cbegin(); it != data[0]->bfs_cend(); ++it)
-			if (it.is_leaf())
-				this->_codebook.insert({std::get<0>(*it), std::get<2>(*it)});
+			if (it.is_leaf()) {
+				const auto value = std::get<0>(*it);
+				const auto code = std::get<2>(*it);
+				this->_codebook.insert({value, code});
+				this->_reverse_codebook.insert({code, value});
+				if (code.size() < _min_code_length)
+					_min_code_length = code.size();
+			}
 	}
 
 private:
 	probability_map _probabilities;
 	std::unordered_map<T, code> _codebook;
+	std::unordered_map<code, T, code_hash> _reverse_codebook;
+	size_t _min_code_length = 0;
 };
 }

@@ -1,6 +1,7 @@
 #include "binary_tree.hpp"
 #include "huffman_encoder.hpp"
 #include <iostream>
+#include <iterator>
 
 static void test_tree_iterator() {
 	auto tree = huffman::binary_tree<int>::make_node();
@@ -80,6 +81,19 @@ int main(int argc, char* argv[]) {
 	enc_int.set_probability_table(probs_int);
 	for (auto it : probs_int)
 		std::cout << it.first << ' ' << enc_int.get_code(it.first).to_string() << '\n';
-
+	auto encoded_data = enc_int.encode("abcd", 4);
+	enc_int.decode(encoded_data, std::ostream_iterator<char>(std::cout, ""));
+	std::cout << " = " << encoded_data.to_string() << '\n';
+	std::vector<char> decoded;
+	enc_int.decode(encoded_data, std::back_inserter(decoded));
+	assert(decoded.size() == 4);
+	assert(decoded[0] == 'a');
+	assert(decoded[1] == 'b');
+	assert(decoded[2] == 'c');
+	assert(decoded[3] == 'd');
+	assert(enc_int.decode_next(encoded_data) == 'a');
+	assert(enc_int.decode_next(encoded_data) == 'b');
+	assert(enc_int.decode_next(encoded_data) == 'c');
+	assert(enc_int.decode_next(encoded_data) == 'd');
 	return 0;
 }
