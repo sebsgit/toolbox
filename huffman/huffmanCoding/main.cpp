@@ -14,60 +14,121 @@ namespace huffman {
 template <typename T>
 class binary_tree {
 protected:
+	template <typename NodeType, typename C>
+	class iterator_backend_adapter;
 	template <typename NodeType>
-	class dfs_iterator_base : public std::iterator<std::forward_iterator_tag, T> {
+	class iterator_backend_adapter<NodeType, std::stack<NodeType>> {
+	public:
+		bool empty() const {
+			return _stack.empty();
+		}
+		NodeType first() const {
+			return _stack.top();
+		}
+		NodeType get_first() {
+			auto result = _stack.top();
+			_stack.pop();
+			return result;
+		}
+		void push(NodeType n) {
+			_stack.push(n);
+		}
+		void split() {
+			auto current = this->get_first();
+			if (current->_right)
+				this->push(current->_right.get());
+			if (current->_left)
+				this->push(current->_left.get());
+		}
+		bool operator==(const iterator_backend_adapter& other) const {
+			return _stack == other._stack;
+		}
+
+	private:
+		std::stack<NodeType> _stack;
+	};
+	template <typename NodeType>
+	class iterator_backend_adapter<NodeType, std::vector<NodeType>> {
+	public:
+		bool empty() const {
+			return _stack.empty();
+		}
+		NodeType first() const {
+			return _stack[0];
+		}
+		NodeType get_first() {
+			auto result = _stack[0];
+			_stack.erase(_stack.begin());
+			return result;
+		}
+		void push(NodeType n) {
+			_stack.push_back(n);
+		}
+		void split() {
+			auto current = this->get_first();
+			if (current->_left)
+				this->push(current->_left.get());
+			if (current->_right)
+				this->push(current->_right.get());
+		}
+		bool operator==(const iterator_backend_adapter& other) const {
+			return _stack == other._stack;
+		}
+
+	private:
+		std::vector<NodeType> _stack;
+	};
+
+	template <typename NodeType, typename Container>
+	class iterator_base : public std::iterator<std::forward_iterator_tag, T> {
 		friend class binary_tree;
-		explicit dfs_iterator_base(NodeType current) {
+		explicit iterator_base(NodeType current) {
 			if (current)
 				_stack.push(current);
 		}
 
 	public:
-		dfs_iterator_base()
-			: dfs_iterator_base(nullptr) {
+		iterator_base()
+			: iterator_base(nullptr) {
 		}
 		const T operator*() const {
-			return _stack.top()->value();
+			return _stack.first()->value();
 		}
-		bool operator!=(const dfs_iterator_base& other) const {
+		bool operator!=(const iterator_base& other) const {
 			return !(*this == other);
 		}
-		bool operator==(const dfs_iterator_base& other) const {
+		bool operator==(const iterator_base& other) const {
 			return this->_stack == other._stack;
 		}
-		dfs_iterator_base& operator++() {
+		iterator_base& operator++() {
 			if (_stack.empty() == false) {
-				auto current = _stack.top();
-				_stack.pop();
-				if (current->_right)
-					_stack.push(current->_right.get());
-				if (current->_left)
-					_stack.push(current->_left.get());
+				_stack.split();
 			}
 			return *this;
 		}
-		dfs_iterator_base operator++(int)const {
-			dfs_iterator_base result(_stack.empty() ? nullptr : _stack.top());
+		iterator_base operator++(int)const {
+			iterator_base result(_stack.empty() ? nullptr : _stack.first());
 			result._stack = this->_stack;
 			this->operator++();
 			return result;
 		}
 		bool is_leaf() const {
-			return _stack.empty() ? false : _stack.top()->is_leaf();
+			return _stack.empty() ? false : _stack.first()->is_leaf();
 		}
 
 	protected:
-		std::stack<NodeType> _stack;
+		iterator_backend_adapter<NodeType, Container> _stack;
 	};
 
 public:
 	using ptr = std::shared_ptr<binary_tree>;
-	using dfs_const_iterator = dfs_iterator_base<const binary_tree*>;
-	class dfs_iterator : public dfs_iterator_base<binary_tree*> {
+	using dfs_const_iterator = iterator_base<const binary_tree*, std::stack<const binary_tree*>>;
+	using bfs_const_iterator = iterator_base<const binary_tree*, std::vector<const binary_tree*>>;
+	class dfs_iterator : public iterator_base<binary_tree*, std::stack<binary_tree*>> {
 	protected:
 		friend class binary_tree;
 		explicit dfs_iterator(binary_tree* node)
-			: dfs_iterator_base<binary_tree*>(node) {
+			: iterator_base<binary_tree*, std::stack<binary_tree*>>(node) {
 		}
 
 	public:
@@ -75,9 +136,25 @@ public:
 			: dfs_iterator(nullptr) {
 		}
 		T& operator*() {
-			return dfs_iterator_base<binary_tree*>::_stack.top()->_data;
+			return iterator_base<binary_tree*, std::stack<binary_tree*>>::_stack.first()->_data;
 		}
 	};
+	class bfs_iterator : public iterator_base<binary_tree*, std::vector<binary_tree*>> {
+	protected:
+		friend class binary_tree;
+		explicit bfs_iterator(binary_tree* node)
+			: iterator_base<binary_tree*, std::vector<binary_tree*>>(node) {
+		}
+
+	public:
+		bfs_iterator()
+			: bfs_iterator(nullptr) {
+		}
+		T& operator*() {
+			return iterator_base<binary_tree*, std::vector<binary_tree*>>::_stack.first()->_data;
+		}
+	};
+
 	using iterator = dfs_iterator;
 	using const_iterator = dfs_const_iterator;
 
@@ -115,17 +192,42 @@ public:
 		return result;
 	}
 	const_iterator cbegin() const {
-		return const_iterator(this);
+		return dfs_cbegin();
 	}
 	const_iterator cend() const {
-		return const_iterator(nullptr);
+		return dfs_cend();
 	}
 	iterator begin() {
-		return iterator(this);
+		return dfs_begin();
 	}
 	iterator end() const {
-		return iterator(nullptr);
+		return dfs_end();
 	}
+	bfs_iterator bfs_begin() {
+		return bfs_iterator(this);
+	}
+	bfs_iterator bfs_end() const {
+		return bfs_iterator(nullptr);
+	}
+	dfs_iterator dfs_begin() {
+		return dfs_iterator(this);
+	}
+	dfs_iterator dfs_end() const {
+		return dfs_iterator(nullptr);
+	}
+	bfs_const_iterator bfs_cbegin() const {
+		return bfs_const_iterator(this);
+	}
+	bfs_const_iterator bfs_cend() const {
+		return bfs_const_iterator(nullptr);
+	}
+	dfs_const_iterator dfs_cbegin() const {
+		return dfs_const_iterator(this);
+	}
+	dfs_const_iterator dfs_cend() const {
+		return dfs_const_iterator(nullptr);
+	}
+
 	bool is_leaf() const {
 		return !_left && !_right;
 	}
@@ -160,11 +262,42 @@ static void test_tree_iterator() {
 	assert(tree_order.at(2) == 3);
 	assert(tree_order.at(3) == 17);
 	assert(tree_order.at(4) == 12);
-	auto result =
-		std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 1; });
+
+	tree = huffman::binary_tree<int>::make_node(1);
+	right = huffman::binary_tree<int>::make_node(2);
+	right->push_left(4)->push_right(8);
+	tree->push_left(7)->push_left(3)->push_left(3)->push_left(1)->push_right(9);
+	tree->set_right(right);
+	tree_order.clear();
+	for (auto it = tree->bfs_cbegin(); it != tree->bfs_cend(); ++it)
+		tree_order.push_back(*it);
+	assert(tree_order.size() == 9);
+	assert(tree_order.at(0) == 1);
+	assert(tree_order.at(1) == 7);
+	assert(tree_order.at(2) == 2);
+	assert(tree_order.at(3) == 3);
+	assert(tree_order.at(4) == 4);
+	assert(tree_order.at(5) == 3);
+	assert(tree_order.at(6) == 8);
+	assert(tree_order.at(7) == 1);
+	assert(tree_order.at(8) == 9);
+	tree_order.clear();
+	for (auto it = tree->dfs_cbegin(); it != tree->dfs_cend(); ++it)
+		tree_order.push_back(*it);
+	assert(tree_order.size() == 9);
+	assert(tree_order.at(0) == 1);
+	assert(tree_order.at(1) == 7);
+	assert(tree_order.at(2) == 3);
+	assert(tree_order.at(3) == 3);
+	assert(tree_order.at(4) == 1);
+	assert(tree_order.at(5) == 9);
+	assert(tree_order.at(6) == 2);
+	assert(tree_order.at(7) == 4);
+	assert(tree_order.at(8) == 8);
+
+	auto result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 1; });
 	assert(*result == 1);
-	result = std::find_if(tree->cbegin(), tree->cend(),
-						  [](int x) { return x == 12332; });
+	result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 12332; });
 	assert(result == tree->cend());
 	for (auto& it : *tree)
 		it = 0;
