@@ -300,11 +300,10 @@ int main(int argc, char* argv[]) {
 	for (auto it : probs)
 		std::cout << it.first << ' ' << encoder.get_code(it.first).to_string() << '\n';
 
-	huffman::probability_table<char, float> probs_int;
-	probs_int['a'] = 32;
-	probs_int['b'] = 1;
-	probs_int['c'] = 11;
-	huffman::encoder<char, float> enc_int;
+	huffman::probability_table<char, int> probs_int;
+	for (char c = 'a'; c != 'z'; ++c)
+		probs_int[c] = static_cast<int>(c);
+	huffman::encoder<char, int> enc_int;
 	enc_int.set_probability_table(probs_int);
 	for (auto it : probs_int)
 		std::cout << it.first << ' ' << enc_int.get_code(it.first).to_string() << '\n';
