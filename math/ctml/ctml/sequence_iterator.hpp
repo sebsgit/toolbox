@@ -39,4 +39,12 @@ namespace ctml {
     struct accumulate {
         static constexpr auto value = accumulate<typename SequenceIterator::next, steps - 1>::value + SequenceIterator::value;
     };
+    
+    /**
+		Calculates the mean of a given number of sequence values
+	*/
+	template <typename SequenceIterator, int steps>
+	struct mean {
+		static constexpr auto value = accumulate<SequenceIterator, steps>::value / (1.0L * steps);
+	};
 }
