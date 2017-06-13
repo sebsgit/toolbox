@@ -1,99 +1,159 @@
-#include "binary_tree.hpp"
-#include "huffman_encoder.hpp"
+#include <vector>
+#include <queue>
 #include <iostream>
-#include <iterator>
+#include <unordered_map>
+#include <functional>
+#include <memory>
+#include <cassert>
+#include <sstream>
 
-static void test_tree_iterator() {
-	auto tree = huffman::binary_tree<int>::make_node();
-	tree->set_value(2);
-	tree->push_left(1);
-	auto right = tree->push_right(3);
-	right->push_right(12);
-	right->push_left(17);
-	std::vector<int> tree_order;
-	for (auto it : *tree)
-		tree_order.push_back(it);
-	assert(tree_order.size() == 5);
-	assert(tree_order.at(0) == 2);
-	assert(tree_order.at(1) == 1);
-	assert(tree_order.at(2) == 3);
-	assert(tree_order.at(3) == 17);
-	assert(tree_order.at(4) == 12);
+//TODO:
+// serialize / deserialize / canonical form
+// configurable "code" type
+// "flatten" after building - dont keep unused nodes (remove traverse_leafs)
+// code / decode api
+// optimality api (entropy etc.)
+// debugging api (memory usage etc.)
+// optimize
 
-	tree = huffman::binary_tree<int>::make_node(1);
-	right = huffman::binary_tree<int>::make_node(2);
-	right->push_left(4)->push_right(8);
-	tree->push_left(7)->push_left(3)->push_left(3)->push_left(1)->push_right(9);
-	tree->set_right(right);
-	tree_order.clear();
-	for (auto it = tree->bfs_cbegin(); it != tree->bfs_cend(); ++it)
-		tree_order.push_back(*it);
-	assert(tree_order.size() == 9);
-	assert(tree_order.at(0) == 1);
-	assert(tree_order.at(1) == 7);
-	assert(tree_order.at(2) == 2);
-	assert(tree_order.at(3) == 3);
-	assert(tree_order.at(4) == 4);
-	assert(tree_order.at(5) == 3);
-	assert(tree_order.at(6) == 8);
-	assert(tree_order.at(7) == 1);
-	assert(tree_order.at(8) == 9);
-	tree_order.clear();
-	for (auto it = tree->dfs_cbegin(); it != tree->dfs_cend(); ++it)
-		tree_order.push_back(*it);
-	assert(tree_order.size() == 9);
-	assert(tree_order.at(0) == 1);
-	assert(tree_order.at(1) == 7);
-	assert(tree_order.at(2) == 3);
-	assert(tree_order.at(3) == 3);
-	assert(tree_order.at(4) == 1);
-	assert(tree_order.at(5) == 9);
-	assert(tree_order.at(6) == 2);
-	assert(tree_order.at(7) == 4);
-	assert(tree_order.at(8) == 8);
+template <typename Data, typename Prob>
+class huffman_tree_base {
+public:
+    explicit huffman_tree_base(const Prob& p) : _prob(p) {}
+    virtual ~huffman_tree_base() = default;
 
-	auto result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 1; });
-	assert(*result == 1);
-	result = std::find_if(tree->cbegin(), tree->cend(), [](int x) { return x == 12332; });
-	assert(result == tree->cend());
-	for (auto& it : *tree)
-		it = 0;
-	for (auto it = tree->cbegin(); it != tree->cend(); ++it)
-		assert(*it == 0);
+    virtual Prob prob() const { return this->_prob; }
+    virtual Data data() const = 0;
+
+    virtual std::vector<bool> code() const { return std::vector<bool>(); }
+
+    virtual void traverse_leafs(const std::function<void(const huffman_tree_base*)>& fn) const = 0;
+    virtual void prepend_bit(bool bit) = 0;
+
+    struct greater_than
+    {
+        bool operator()(const huffman_tree_base* left, const huffman_tree_base* right) const {
+            return left->_prob > right->_prob;
+        }
+    };
+
+    template <typename ForwardIt>
+    static huffman_tree_base* build(ForwardIt begin, ForwardIt end);
+
+protected:
+    Prob _prob;
+};
+
+template <typename Data, typename Prob>
+class huffman_tree : public huffman_tree_base<Data, Prob> {
+    using base = huffman_tree_base<Data, Prob>;
+public:
+    huffman_tree(huffman_tree_base<Data, Prob>* left, huffman_tree_base<Data, Prob>* right)
+        :base(left->prob() + right->prob())
+        ,_left(left)
+        ,_right(right)
+    {
+        _left->prepend_bit(0);
+        _right->prepend_bit(1);
+    }
+
+    Data data() const override { throw ""; }
+
+    void traverse_leafs(const std::function<void (const huffman_tree_base<Data, Prob> *)> &fn) const override {
+        if (_left)
+            _left->traverse_leafs(fn);
+        if (_right)
+            _right->traverse_leafs(fn);
+    }
+
+protected:
+    void prepend_bit(bool bit) override {
+        _left->prepend_bit(bit);
+        _right->prepend_bit(bit);
+    }
+
+private:
+    std::unique_ptr<base> _left;
+    std::unique_ptr<base> _right;
+};
+
+template <typename Data, typename Prob>
+class huffman_node : public huffman_tree_base<Data, Prob>
+{
+    using base = huffman_tree_base<Data, Prob>;
+public:
+    huffman_node(const Data& d, const Prob& p)
+        : base(p)
+        , _data(d)
+    {
+
+    }
+
+    Data data() const override { return this->_data; }
+    std::vector<bool> code() const override { return this->_code; }
+
+    void traverse_leafs(const std::function<void (const base *)> &fn) const override {
+        fn(this);
+    }
+
+protected:
+    void prepend_bit(bool bit) override {
+        this->_code.insert(this->_code.begin(), bit);
+    }
+
+private:
+    const Data _data;
+    std::vector<bool> _code;
+};
+
+
+template <typename Data, typename Prob> template <class ForwardIt>
+huffman_tree_base<Data, Prob>* huffman_tree_base<Data,Prob>::build(ForwardIt begin, ForwardIt end)
+{
+    if (begin == end)
+        return nullptr;
+    using Tree = huffman_tree_base<Data, Prob>;
+    std::priority_queue<Tree*, std::vector<Tree*>, Tree::greater_than> nodes;
+    for(auto it = begin ; it != end ; it = std::next(it)) {
+        nodes.push(new huffman_node<Data, Prob>(it->first, it->second));
+    }
+    while (nodes.size() > 1) {
+        Tree* left = nodes.top();
+        nodes.pop();
+        Tree* right = nodes.top();
+        nodes.pop();
+        nodes.push(new huffman_tree<Data, Prob>(left, right));
+    }
+    return nodes.top();
 }
 
-int main(int argc, char* argv[]) {
-	test_tree_iterator();
-	huffman::probability_table<int, float> probs;
-	probs[1] = 0.14;
-	probs[2] = 0.44;
-	probs[7] = 0.23;
-	probs[32] = 0.19;
-	huffman::encoder<int, float> encoder;
-	encoder.set_probability_table(probs);
-	for (auto it : probs)
-		std::cout << it.first << ' ' << encoder.get_code(it.first).to_string() << '\n';
+static std::string code_to_str(const std::vector<bool>& code) {
+    std::stringstream ss;
+    for (auto b : code)
+        ss << (b ? 1 : 0);
+    return ss.str();
+}
 
-	huffman::probability_table<char, int> probs_int;
-	for (char c = 'a'; c != 'z'; ++c)
-		probs_int[c] = static_cast<int>(c);
-	huffman::encoder<char, int> enc_int;
-	enc_int.set_probability_table(probs_int);
-	for (auto it : probs_int)
-		std::cout << it.first << ' ' << enc_int.get_code(it.first).to_string() << '\n';
-	auto encoded_data = enc_int.encode("abcd", 4);
-	enc_int.decode(encoded_data, std::ostream_iterator<char>(std::cout, ""));
-	std::cout << " = " << encoded_data.to_string() << '\n';
-	std::vector<char> decoded;
-	enc_int.decode(encoded_data, std::back_inserter(decoded));
-	assert(decoded.size() == 4);
-	assert(decoded[0] == 'a');
-	assert(decoded[1] == 'b');
-	assert(decoded[2] == 'c');
-	assert(decoded[3] == 'd');
-	assert(enc_int.decode_next(encoded_data) == 'a');
-	assert(enc_int.decode_next(encoded_data) == 'b');
-	assert(enc_int.decode_next(encoded_data) == 'c');
-	assert(enc_int.decode_next(encoded_data) == 'd');
-	return 0;
+int main()
+{
+    std::unordered_map<int, float> probs;
+    probs[1] = 0.10f;
+    probs[2] = 0.15f;
+    probs[3] = 0.30f;
+    probs[4] = 0.16f;
+    probs[5] = 0.29f;
+    std::unordered_map<int, std::string> expected_codes;
+    expected_codes[1] = "010";
+    expected_codes[2] = "011";
+    expected_codes[3] = "11";
+    expected_codes[4] = "00";
+    expected_codes[5] = "10";
+
+    using Tree = huffman_tree_base<int ,float>;
+    auto tree = std::unique_ptr<Tree>(Tree::build(probs.begin(), probs.end()));
+    tree->traverse_leafs([&](const Tree* node) {
+        assert(expected_codes[node->data()] == code_to_str(node->code()));
+    });
+
+    return 0;
 }
