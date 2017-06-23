@@ -11,30 +11,28 @@
 //TODO:
 // serialize / deserialize / canonical form
 // configurable "code" type
-// "flatten" after building - dont keep unused nodes (remove traverse_leafs)
-// code / decode api
 // optimality api (entropy etc.)
 // debugging api (memory usage etc.)
 // optimize
 
-template <typename Data, typename Prob>
-class huffman_tree;
+template <typename Data, typename Prob, typename Code> class huffman_tree;
 
-template <typename Data, typename Prob>
+template <typename Data, typename Prob, typename Code = std::vector<bool>>
 class huffman_tree_base {
 public:
+    using code_type = Code;
+
     explicit huffman_tree_base(const Prob& p) : _prob(p) {}
     virtual ~huffman_tree_base() = default;
 
     virtual Prob prob() const { return this->_prob; }
     virtual Data data() const { throw std::runtime_error("data() called on non-leaf node."); }
 
-    virtual std::vector<bool> code() const {
+    virtual code_type code() const {
         throw std::runtime_error("code() called on non-leaf node.");
-        return std::vector<bool>();
+        return code_type();
     }
 
-    virtual void traverse_leafs(const std::function<void(const huffman_tree_base*)>& fn) const = 0;
     virtual void prepend_bit(bool bit) = 0;
 
     virtual bool isLeaf() const { return false; }
@@ -47,17 +45,17 @@ public:
     };
 
     template <typename ForwardIt, typename DataSelector, typename ProbSelector>
-    static huffman_tree<Data, Prob>* build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob);
+    static huffman_tree<Data, Prob, Code>* build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob);
 
 protected:
     Prob _prob;
 };
 
-template <typename Data, typename Prob>
-class huffman_tree : public huffman_tree_base<Data, Prob> {
-    using base = huffman_tree_base<Data, Prob>;
+template <typename Data, typename Prob, typename Code = std::vector<bool>>
+class huffman_tree : public huffman_tree_base<Data, Prob, Code> {
+    using base = huffman_tree_base<Data, Prob, Code>;
 public:
-    huffman_tree(huffman_tree_base<Data, Prob>* left, huffman_tree_base<Data, Prob>* right)
+    huffman_tree(huffman_tree_base<Data, Prob, Code>* left, huffman_tree_base<Data, Prob, Code>* right)
         :base(left->prob() + right->prob())
         ,_left(left)
         ,_right(right)
@@ -66,19 +64,15 @@ public:
         _right->prepend_bit(1);
     }
 
-    void traverse_leafs(const std::function<void (const huffman_tree_base<Data, Prob> *)> &fn) const override {
-        if (_left)
-            _left->traverse_leafs(fn);
-        if (_right)
-            _right->traverse_leafs(fn);
-    }
+    const base* left() const { return this->_left.get(); }
+    const base* right() const { return this->_right.get(); }
 
     template <typename ForwardIt, typename OutputIt>
     void decode(ForwardIt begin, ForwardIt end, OutputIt out)
     {
-        auto tree = this;
+        const huffman_tree<Data, Prob, Code>* tree = this;
         for (auto it = begin; it != end; it = std::next(it)) {
-            auto next = *it ? tree->_right.get() : tree->_left.get();
+            auto next = *it ? tree->right() : tree->left();
             if (!next)
                 throw std::runtime_error("invalid code.");
             if (next->isLeaf()) {
@@ -86,7 +80,7 @@ public:
                 ++out;
                 tree = this;
             } else {
-                tree = static_cast<huffman_tree*>(next);
+                tree = static_cast<const huffman_tree*>(next);
             }
         }
     }
@@ -102,26 +96,22 @@ private:
     std::unique_ptr<base> _right;
 };
 
-template <typename Data, typename Prob>
-class huffman_node : public huffman_tree_base<Data, Prob>
+template <typename Data, typename Prob, typename Code = std::vector<bool>>
+class huffman_node : public huffman_tree_base<Data, Prob, Code>
 {
-    using base = huffman_tree_base<Data, Prob>;
+    using base = huffman_tree_base<Data, Prob, Code>;
+    using code_type = typename base::code_type;
 public:
     huffman_node(const Data& d, const Prob& p)
         : base(p)
         , _data(d)
     {
-
     }
 
     Data data() const override { return this->_data; }
-    std::vector<bool> code() const override { return this->_code; }
+    code_type code() const override { return this->_code; }
 
     virtual bool isLeaf() const override { return true; }
-
-    void traverse_leafs(const std::function<void (const base *)> &fn) const override {
-        fn(this);
-    }
 
 protected:
     void prepend_bit(bool bit) override {
@@ -130,36 +120,58 @@ protected:
 
 private:
     const Data _data;
-    std::vector<bool> _code;
+    code_type _code;
 };
 
 
-template <typename Data, typename Prob> template <class ForwardIt, class DataSelector, class ProbSelector>
-huffman_tree<Data, Prob>* huffman_tree_base<Data,Prob>::build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob)
+template <typename Data, typename Prob, typename Code> template <class ForwardIt, class DataSelector, class ProbSelector>
+huffman_tree<Data, Prob, Code>* huffman_tree_base<Data,Prob, Code>::build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob)
 {
     if (begin == end)
         return nullptr;
-    using Tree = huffman_tree_base<Data, Prob>;
+    using Tree = huffman_tree_base<Data, Prob, Code>;
     std::priority_queue<Tree*, std::vector<Tree*>, Tree::greater_than> nodes;
     for(auto it = begin ; it != end ; it = std::next(it)) {
-        nodes.push(new huffman_node<Data, Prob>(get_data(*it), get_prob(*it)));
+        nodes.push(new huffman_node<Data, Prob, Code>(get_data(*it), get_prob(*it)));
     }
     while (nodes.size() > 1) {
         Tree* left = nodes.top();
         nodes.pop();
         Tree* right = nodes.top();
         nodes.pop();
-        nodes.push(new huffman_tree<Data, Prob>(left, right));
+        nodes.push(new huffman_tree<Data, Prob, Code>(left, right));
     }
-    return dynamic_cast<huffman_tree<Data, Prob>*>(nodes.top());
+    return dynamic_cast<huffman_tree<Data, Prob, Code>*>(nodes.top());
 }
 
-static std::string code_to_str(const std::vector<bool>& code) {
-    std::stringstream ss;
-    for (auto b : code)
-        ss << (b ? 1 : 0);
-    return ss.str();
-}
+template <typename Data, typename Prob, typename Code = std::vector<bool>>
+class huffman_encoder {
+    using tree_type = huffman_tree_base<Data, Prob, Code>;
+public:
+    using code_type = typename tree_type::code_type;
+
+    explicit huffman_encoder(const tree_type* tree)
+    {
+        assert(tree);
+        std::deque<const tree_type*> to_visit;
+        to_visit.push_back(tree);
+        while (!to_visit.empty()) {
+            auto node = to_visit.back();
+            to_visit.pop_back();
+            if (node->isLeaf()) {
+                this->_cache[node->data()] = node->code();
+            } else if(auto p = dynamic_cast<const huffman_tree<Data, Prob, Code>*>(node)) {
+                if (p->right())
+                    to_visit.push_back(p->right());
+                if (p->left())
+                    to_visit.push_back(p->left());
+            }
+        }
+    }
+    code_type code(const Data& data) const { return this->_cache.at(data); }
+private:
+    std::unordered_map<Data, code_type> _cache;
+};
 
 int main()
 {
@@ -169,12 +181,12 @@ int main()
     probs[3] = 0.30f;
     probs[4] = 0.16f;
     probs[5] = 0.29f;
-    std::unordered_map<int, std::string> expected_codes;
-    expected_codes[1] = "010";
-    expected_codes[2] = "011";
-    expected_codes[3] = "11";
-    expected_codes[4] = "00";
-    expected_codes[5] = "10";
+    std::unordered_map<int, std::vector<bool>> expected_codes;
+    expected_codes[1] = {0, 1, 0};
+    expected_codes[2] = {0, 1, 1};
+    expected_codes[3] = {1, 1};
+    expected_codes[4] = {0, 0};
+    expected_codes[5] = {1, 0};
 
     using Tree = huffman_tree_base<int ,float>;
     auto tree = std::unique_ptr<huffman_tree<int, float>>(Tree::build(probs.begin(),
@@ -182,10 +194,11 @@ int main()
                                                                       [](auto pair){ return pair.first; },
                                                                       [](auto pair){ return pair.second; })
                                                           );
-    tree->traverse_leafs([&](const Tree* node) {
-        assert(expected_codes[node->data()] == code_to_str(node->code()));
-    });
-
+    auto encoder = huffman_encoder<int, float>(tree.get());
+    assert(encoder.code(2) == std::vector<bool>({0, 1, 1}));
+    for (const auto& p : expected_codes) {
+        assert(encoder.code(p.first) == p.second);
+    }
     std::vector<bool> code{0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0};
     std::vector<int> message;
     tree->decode(code.begin(), code.end(), std::back_inserter(message));
