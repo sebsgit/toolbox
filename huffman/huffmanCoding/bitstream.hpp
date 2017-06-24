@@ -20,6 +20,11 @@ public:
 protected:
     constexpr size_t buffer_size() const { return sizeof(_buffer) * 8; }
 
+    static bool is_little_endian() {
+        const int16_t a = 1;
+        return *reinterpret_cast<const int8_t*>(&a) == 1;
+    }
+
 protected:
     Stream& _ss;
     uint8_t _buffer = 0;
@@ -42,11 +47,12 @@ public:
     {
         static_assert(std::is_pod<T>::value, "cannot output non-pod type");
         const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&t);
-        for (size_t i=0 ; i<sizeof(t) ; ++i) {
-            for (int8_t b = 7 ; b >= 0 ; --b) {
-                this->write_bit(bytes[i] & (1 << b));
-            }
-        }
+        if (this->is_little_endian())
+            for (size_t i=0 ; i<sizeof(t) ; ++i)
+                this->write_byte(bytes[i]);
+        else
+            for (int32_t i=sizeof(t) - 1 ; i >= 0 ; --i)
+                this->write_byte(bytes[i]);
         return *this;
     }
     bit_ostream& operator << (const std::vector<bool>& data)
@@ -63,6 +69,12 @@ public:
             this->_ss << this->_buffer;
             this->_buffer = 0;
             this->_count = 0;
+        }
+    }
+    void write_byte(uint8_t byte)
+    {
+        for (int8_t b = 7 ; b >= 0 ; --b) {
+            this->write_bit(byte & (1 << b));
         }
     }
 
@@ -83,14 +95,18 @@ public:
     {
         static_assert(std::is_pod<T>::value, "cannot write to non-pod type");
         uint8_t* bytes = reinterpret_cast<uint8_t*>(&t);
-        for (size_t i=0 ; i<sizeof(t) ; ++i) {
-            for (int8_t b = 7 ; b >= 0 ; --b) {
-                bool bit = this->read_bit();
+        if (this->is_little_endian())
+            for (size_t i=0 ; i<sizeof(t) ; ++i) {
+                bytes[i] = this->read_byte();
                 if (this->eof())
-                    return *this;
-                bytes[i] = bit ? (bytes[i] | (1 << b)) : (bytes[i] & ~(1 << b));
+                    break;
             }
-        }
+        else
+            for (int32_t i=sizeof(t) - 1 ; i >= 0 ; --i) {
+                bytes[i] = this->read_byte();
+                if (this->eof())
+                    break;
+            }
         return *this;
     }
     bit_istream& operator >> (std::vector<bool>& data)
@@ -113,6 +129,17 @@ public:
         }
         bool result = this->get_bit(this->_count - 1);
         --this->_count;
+        return result;
+    }
+    uint8_t read_byte()
+    {
+        uint8_t result = 0;
+        for (int8_t b = 7 ; b >= 0 ; --b) {
+            bool bit = this->read_bit();
+            if (this->eof())
+                break;
+            result = bit ? (result | (1 << b)) : (result & ~(1 << b));
+        }
         return result;
     }
     std::vector<bool> read_bits(size_t count)
