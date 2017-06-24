@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <exception>
+#include <type_traits>
 
 template <typename Stream>
 class bit_stream_base {
@@ -39,7 +40,13 @@ public:
     template <typename T>
     bit_ostream& operator << (const T& t)
     {
-        this->_ss << t;
+        static_assert(std::is_pod<T>::value, "cannot output non-pod type");
+        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&t);
+        for (size_t i=0 ; i<sizeof(t) ; ++i) {
+            for (int8_t b = 7 ; b >= 0 ; --b) {
+                this->write_bit(bytes[i] & (1 << b));
+            }
+        }
         return *this;
     }
     bit_ostream& operator << (const std::vector<bool>& data)
@@ -74,7 +81,16 @@ public:
     template <typename T>
     bit_istream& operator >> (T& t)
     {
-        this->_ss >> t;
+        static_assert(std::is_pod<T>::value, "cannot write to non-pod type");
+        uint8_t* bytes = reinterpret_cast<uint8_t*>(&t);
+        for (size_t i=0 ; i<sizeof(t) ; ++i) {
+            for (int8_t b = 7 ; b >= 0 ; --b) {
+                bool bit = this->read_bit();
+                if (this->eof())
+                    return *this;
+                bytes[i] = bit ? (bytes[i] | (1 << b)) : (bytes[i] & ~(1 << b));
+            }
+        }
         return *this;
     }
     bit_istream& operator >> (std::vector<bool>& data)
@@ -114,6 +130,15 @@ public:
                 break;
             *out = bit;
             ++out;
+            --count;
+        }
+    }
+    void skip(size_t count)
+    {
+        while (count > 0) {
+            this->read_bit();
+            if (this->eof())
+                break;
             --count;
         }
     }

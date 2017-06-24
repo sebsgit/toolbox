@@ -40,6 +40,8 @@ static void test_bitstream() {
     std::vector<bool> data{0, 0, 1, 0, 0, 1, 0, 1}; // 37
     std::ofstream out("test.dat", std::ios_base::out | std::ios_base::binary);
     auto ss = bitstream::wrap_ostream(out);
+    int16_t x = 45;
+    ss << x;
     ss << data;
     ss.write_bit(0);
     ss.write_bit(0);
@@ -53,18 +55,16 @@ static void test_bitstream() {
     out.close();
     std::ifstream in("test.dat", std::ios_base::in | std::ios_base::binary);
     uint8_t a, b;
-    in >> a;
-    in >> b;
-    assert(a == 37);
-    assert(b == 3);
-
-    in.seekg(0);
-    in.seekg(std::ios_base::end);
-    auto size = in.tellg();
-    assert(size == 2);
-    in.seekg(0);
     auto is = bitstream::wrap_istream(in);
     assert(!is.eof());
+    is >> x;
+    is >> a;
+    is >> b;
+    assert(x == 45);
+    assert(a == 37);
+    assert(b == 3);
+    in.seekg(0);
+    is.skip(sizeof(x) * 8);
     std::vector<bool> read_bits = is.read_bits(8);
     assert(read_bits == data);
     read_bits.clear();
