@@ -23,6 +23,36 @@ class huffman_tree_base {
 public:
     using code_type = Code;
 
+    // iterator
+    template <typename _Tp>
+    class iterator_base : public std::iterator<std::forward_iterator_tag, _Tp>{
+    public:
+        explicit iterator_base(_Tp* current)
+            :_current(current)
+        {
+            if (current) {
+                this->_to_visit.push_back(current);
+                // position on the first leaf
+                while (this->_current && !this->_current->isLeaf()) {
+                    this->operator ++();
+                }
+            }
+        }
+
+        iterator_base& operator++();
+        const huffman_tree_base& operator*() const { return *this->_current; }
+
+        bool operator==(const iterator_base& other) const { return this->_current == other._current; }
+        bool operator!=(const iterator_base& other) const { return !(*this == other); }
+    private:
+        _Tp* _current;
+        std::deque<_Tp*> _to_visit;
+    };
+
+    using const_iterator = iterator_base<const huffman_tree_base>;
+    using iterator = iterator_base<huffman_tree_base>;
+    //
+
     explicit huffman_tree_base(const Prob& p) : _prob(p) {}
     virtual ~huffman_tree_base() = default;
 
@@ -44,6 +74,12 @@ public:
             return left->_prob > right->_prob;
         }
     };
+
+    const_iterator begin() const { return const_iterator(this); }
+    const_iterator end() const { return const_iterator(nullptr); }
+
+    iterator begin() { return iterator(this); }
+    iterator end() { return iterator(nullptr); }
 
     template <typename ForwardIt, typename DataSelector, typename ProbSelector>
     static huffman_tree<Data, Prob, Code>* build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob);
@@ -124,6 +160,27 @@ private:
     code_type _code;
 };
 
+template <typename Data, typename Prob, typename Code> template <typename _Tp>
+typename huffman_tree_base<Data, Prob, Code>::template iterator_base<_Tp>&
+huffman_tree_base<Data, Prob, Code>::iterator_base<_Tp>::operator++()
+{
+    if (this->_to_visit.empty())
+        this->_current = nullptr;
+    while (!this->_to_visit.empty()) {
+        auto node = this->_to_visit.back();
+        this->_to_visit.pop_back();
+        if (node->isLeaf()) {
+            this->_current = node;
+            break;
+        } else if(auto p = dynamic_cast<const huffman_tree<Data, Prob, Code>*>(node)) {
+            if (p->right())
+                this->_to_visit.push_back(p->right());
+            if (p->left())
+                this->_to_visit.push_back(p->left());
+        }
+    }
+    return *this;
+}
 
 template <typename Data, typename Prob, typename Code> template <class ForwardIt, class DataSelector, class ProbSelector>
 huffman_tree<Data, Prob, Code>* huffman_tree_base<Data,Prob, Code>::build(ForwardIt begin, ForwardIt end, const DataSelector& get_data, const ProbSelector& get_prob)
@@ -135,6 +192,7 @@ huffman_tree<Data, Prob, Code>* huffman_tree_base<Data,Prob, Code>::build(Forwar
     for(auto it = begin ; it != end ; it = std::next(it)) {
         nodes.push(new huffman_node<Data, Prob, Code>(get_data(*it), get_prob(*it)));
     }
+    assert(!nodes.empty());
     while (nodes.size() > 1) {
         Tree* left = nodes.top();
         nodes.pop();
@@ -154,20 +212,8 @@ public:
     explicit huffman_encoder(const tree_type* tree)
     {
         assert(tree);
-        std::deque<const tree_type*> to_visit;
-        to_visit.push_back(tree);
-        while (!to_visit.empty()) {
-            auto node = to_visit.back();
-            to_visit.pop_back();
-            if (node->isLeaf()) {
-                this->_cache[node->data()] = node->code();
-            } else if(auto p = dynamic_cast<const huffman_tree<Data, Prob, Code>*>(node)) {
-                if (p->right())
-                    to_visit.push_back(p->right());
-                if (p->left())
-                    to_visit.push_back(p->left());
-            }
-        }
+        for (auto &it : *tree)
+            this->_cache[it.data()] = it.code();
     }
     code_type code(const Data& data) const { return this->_cache.at(data); }
 private:
