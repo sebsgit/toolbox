@@ -2,6 +2,7 @@
 #include "bitstream.hpp"
 
 #include <fstream>
+#include <unistd.h>
 
 static void test_huffman()
 {
