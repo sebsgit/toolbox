@@ -2,6 +2,7 @@
 #include "bitstream.hpp"
 
 #include <fstream>
+#include <unistd.h>
 
 static void test_huffman()
 {
@@ -34,6 +35,26 @@ static void test_huffman()
     tree->decode(code.begin(), code.end(), std::back_inserter(message));
     assert(message.size() == 5);
     assert(message == std::vector<int>({1, 2, 4, 4, 5}));
+}
+
+static void test_huffman_canonical_form() {
+    std::unordered_map<char, double> probs;
+    probs['B'] = 0.4;
+    probs['A'] = 0.3;
+    probs['C'] = 0.2;
+    probs['D'] = 0.1;
+    using Tree = huffman_tree_base<char, double>;
+    auto tree = std::unique_ptr<huffman_tree<char, double>>(Tree::build(probs.begin(),
+                                                                      probs.end(),
+                                                                      [](auto pair){ return pair.first; },
+                                                                      [](auto pair){ return pair.second; })
+                                                            );
+    tree->make_canonical();
+    auto encoder = huffman_encoder<char, double>(tree.get());
+    assert(encoder.code('B') == std::vector<bool>({0}));
+    assert(encoder.code('A') == std::vector<bool>({1, 0}));
+    assert(encoder.code('C') == std::vector<bool>({1, 1, 0}));
+    assert(encoder.code('D') == std::vector<bool>({1, 1, 1}));
 }
 
 static void test_bitstream() {
@@ -86,6 +107,7 @@ static void test_bitstream() {
 int main()
 {
     test_huffman();
+    test_huffman_canonical_form();
     test_bitstream();
     return 0;
 }
