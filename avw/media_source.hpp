@@ -10,6 +10,7 @@ extern "C" {
 #include "libswscale/swscale.h"
 }
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -270,6 +271,11 @@ public:
             }
         }
         return media_frame();
+    }
+    template <typename Base = std::chrono::milliseconds>
+    auto duration() const
+    {
+        return std::chrono::duration_cast<Base>(std::chrono::microseconds(this->_formatCtx->duration));
     }
 
 private:
