@@ -30,11 +30,7 @@ enum class error {
     unknown
 };
 
-static void init()
-{
-    avcodec_register_all();
-    av_register_all();
-}
+void init();
 
 class media_source;
 
@@ -89,6 +85,11 @@ public:
     int backend_format() const { return this->_frame->format; }
 
     int64_t presentation_timestamp() const { return av_frame_get_best_effort_timestamp(this->_frame); }
+    template <typename type = uint8_t>
+    typename std::add_const<type>::type* data(size_t plane) const
+    {
+        return static_cast<typename std::add_const<type>::type*>(this->_frame->data[plane]);
+    }
 
 private:
     AVFrame* _frame;
@@ -132,6 +133,11 @@ public:
     double time_base() const
     {
         return this->_time_base;
+    }
+
+    void flush()
+    {
+        avcodec_flush_buffers(this->_context);
     }
 
 protected:
@@ -277,6 +283,14 @@ public:
     {
         return std::chrono::duration_cast<Base>(std::chrono::microseconds(this->_formatCtx->duration));
     }
+    void seek(double fraction)
+    {
+        fraction = fraction < 0 ? 0.0 : fraction > 1.0 ? 1.0 : fraction;
+        const auto max_timestamp = this->_formatCtx->duration;
+        const auto nearest_timestamp = static_cast<decltype(max_timestamp)>(max_timestamp * fraction);
+        this->_backend_error = av_seek_frame(this->_formatCtx, -1, nearest_timestamp, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
+        this->_video_stream->flush();
+    }
 
 private:
     static enum error from_backend_error(int code)
@@ -299,6 +313,14 @@ private:
     std::string _path;
 };
 } // namespace avw
+
+#ifdef AVW_MEDIA_IMPL
+
+void avw::init()
+{
+    avcodec_register_all();
+    av_register_all();
+}
 
 avw::context_stream::context_stream(const media_source& media, enum type codec_type)
     : _parent(&media)
@@ -323,5 +345,6 @@ avw::context_stream::context_stream(const media_source& media, enum type codec_t
         }
     }
 }
+#endif // AVW_MEDIA_IMPL
 
 #endif // AVW_MEDIA_SOURCE_HPP

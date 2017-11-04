@@ -15,7 +15,14 @@ enum class pixel_format {
     unknown
 };
 
-static enum pixel_format from_av_format(int code)
+enum pixel_format from_av_format(int code);
+AVPixelFormat to_av_format(enum pixel_format format);
+const char* pixel_format_string(const enum pixel_format fmt);
+
+} // namespace avw
+
+#ifdef AVW_MEDIA_IMPL
+enum avw::pixel_format avw::from_av_format(int code)
 {
     if (code == AV_PIX_FMT_NONE)
         return avw::pixel_format::none;
@@ -26,7 +33,7 @@ static enum pixel_format from_av_format(int code)
     return avw::pixel_format::unknown;
 }
 
-static AVPixelFormat to_av_format(enum pixel_format format)
+AVPixelFormat avw::to_av_format(enum avw::pixel_format format)
 {
     return static_cast<AVPixelFormat>(format);
 }
@@ -35,7 +42,7 @@ static AVPixelFormat to_av_format(enum pixel_format format)
     case avw::pixel_format::code: \
         return #code
 
-static const char* pixel_format_string(const enum pixel_format fmt)
+const char* avw::pixel_format_string(const enum pixel_format fmt)
 {
     switch (fmt) {
         MAKE_PXFMT_CASE(none);
@@ -45,9 +52,7 @@ static const char* pixel_format_string(const enum pixel_format fmt)
         return "none";
     }
 }
-
 #undef MAKE_PXFMT_CASE
-
-} // namespace avw
+#endif
 
 #endif // AVW_PIXEL_FORMAT_HPP
