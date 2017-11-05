@@ -33,15 +33,19 @@ enum class error {
 void init();
 
 class media_source;
+class context_stream;
 
 class media_frame {
 public:
     media_frame()
-        : _frame(av_frame_alloc())
+        : _frame(nullptr)
+        , _stream(nullptr)
+        , _own_data(false)
     {
     }
     media_frame(media_frame&& other)
         : _frame(other._frame)
+        , _stream(other._stream)
         , _own_data(other._own_data)
     {
         other._frame = nullptr;
@@ -55,6 +59,7 @@ public:
             av_frame_free(&this->_frame);
         this->_frame = other._frame;
         this->_own_data = other._own_data;
+        this->_stream = other._stream;
         other._frame = nullptr;
         other._own_data = false;
         return *this;
@@ -68,7 +73,7 @@ public:
     }
     media_frame allocate(int width, int height, avw::pixel_format format, int alignment = 4) const
     {
-        media_frame result;
+        media_frame result(this->_stream);
         result._own_data = true;
         result.handle()->width = width;
         result.handle()->height = height;
@@ -77,6 +82,7 @@ public:
         av_image_alloc(result.handle()->data, result.handle()->linesize, width, height, to_av_format(format), alignment);
         return result;
     }
+    bool is_key_frame() const { return this->_frame->key_frame == 1; }
     int width() const { return this->_frame->width; }
     int height() const { return this->_frame->height; }
     enum pixel_format pixel_format() const { return from_av_format(this->backend_format()); }
@@ -84,20 +90,46 @@ public:
     const AVFrame* handle() const { return this->_frame; }
     int backend_format() const { return this->_frame->format; }
 
+    /// @return Best effort PTS in stream time base
     int64_t presentation_timestamp() const { return av_frame_get_best_effort_timestamp(this->_frame); }
+    /// @return Best effort PTS in AV_TIME_BASE
+    int64_t presentation_timestamp_base() const { return static_cast<int64_t>(this->presentation_timestamp() * this->stream_time_base() * AV_TIME_BASE); }
+    /**
+        Presentation timestamp represented as std::chrono type.
+        @tparam Base Type to represent the timestamp.
+        @return This frame timestamp in the selected time base.
+    */
+    template <typename Base = std::chrono::milliseconds>
+    Base presentation_time() const
+    {
+        const auto pts = this->presentation_timestamp();
+        const auto value = (AV_TIME_BASE * pts * this->stream_time_base()) / 1000.0;
+        return std::chrono::duration_cast<Base>(std::chrono::milliseconds(static_cast<int64_t>(value)));
+    }
     template <typename type = uint8_t>
     typename std::add_const<type>::type* data(size_t plane) const
     {
         return static_cast<typename std::add_const<type>::type*>(this->_frame->data[plane]);
     }
 
+protected:
+    double stream_time_base() const;
+
 private:
     AVFrame* _frame;
+    const context_stream* _stream;
     bool _own_data = false;
 
 private:
     media_frame(const media_frame&) = delete;
     media_frame& operator=(const media_frame&) = delete;
+    media_frame(const context_stream* stream)
+        : _frame(av_frame_alloc())
+        , _stream(stream)
+    {
+    }
+
+    friend class context_stream;
 };
 
 class context_stream {
@@ -122,7 +154,7 @@ public:
 
     media_frame decode(AVPacket* packet)
     {
-        media_frame frame;
+        media_frame frame(this);
         this->_error = avcodec_send_packet(this->_context, packet);
         if (this->_error == 0) {
             this->_error = avcodec_receive_frame(this->_context, frame.handle());
@@ -288,8 +320,9 @@ public:
         fraction = fraction < 0 ? 0.0 : fraction > 1.0 ? 1.0 : fraction;
         const auto max_timestamp = this->_formatCtx->duration;
         const auto nearest_timestamp = static_cast<decltype(max_timestamp)>(max_timestamp * fraction);
-        this->_backend_error = av_seek_frame(this->_formatCtx, -1, nearest_timestamp, AVSEEK_FLAG_ANY | AVSEEK_FLAG_BACKWARD);
+        this->_backend_error = av_seek_frame(this->_formatCtx, -1, nearest_timestamp, AVSEEK_FLAG_ANY);
         this->_video_stream->flush();
+        //TODO manually "rewind" to nearest timestamp
     }
 
 private:
@@ -344,6 +377,11 @@ avw::context_stream::context_stream(const media_source& media, enum type codec_t
                 this->_error = avcodec_open2(this->_context, this->_codec, nullptr);
         }
     }
+}
+
+double avw::media_frame::stream_time_base() const
+{
+    return this->_stream->time_base();
 }
 #endif // AVW_MEDIA_IMPL
 
