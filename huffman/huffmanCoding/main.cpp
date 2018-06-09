@@ -1,8 +1,7 @@
-#include "huffman.hpp"
 #include "bitstream.hpp"
+#include "huffman.hpp"
 
 #include <fstream>
-#include <unistd.h>
 
 static void test_huffman()
 {
@@ -13,52 +12,52 @@ static void test_huffman()
     probs[4] = 0.16f;
     probs[5] = 0.29f;
     std::unordered_map<int, std::vector<bool>> expected_codes;
-    expected_codes[1] = {0, 1, 0};
-    expected_codes[2] = {0, 1, 1};
-    expected_codes[3] = {1, 1};
-    expected_codes[4] = {0, 0};
-    expected_codes[5] = {1, 0};
+    expected_codes[1] = { 0, 1, 0 };
+    expected_codes[2] = { 0, 1, 1 };
+    expected_codes[3] = { 1, 1 };
+    expected_codes[4] = { 0, 0 };
+    expected_codes[5] = { 1, 0 };
 
-    using Tree = huffman_tree_base<int ,float>;
-    auto tree = std::unique_ptr<huffman_tree<int, float>>(Tree::build(probs.begin(),
-                                                                      probs.end(),
-                                                                      [](auto pair){ return pair.first; },
-                                                                      [](auto pair){ return pair.second; })
-                                                          );
-    auto encoder = huffman_encoder<int, float>(tree.get());
-    assert(encoder.code(2) == std::vector<bool>({0, 1, 1}));
+    using Tree = huffman_tree_base<int, float>;
+    auto tree = Tree::build(probs.begin(),
+        probs.end(),
+        [](auto pair) { return pair.first; },
+        [](auto pair) { return pair.second; });
+    auto encoder = make_encoder(*tree);
+    assert(encoder.code(2) == std::vector<bool>({ 0, 1, 1 }));
     for (const auto& p : expected_codes) {
         assert(encoder.code(p.first) == p.second);
     }
-    std::vector<bool> code{0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0};
+    std::vector<bool> code{ 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0 };
     std::vector<int> message;
     tree->decode(code.begin(), code.end(), std::back_inserter(message));
     assert(message.size() == 5);
-    assert(message == std::vector<int>({1, 2, 4, 4, 5}));
+    assert(message == std::vector<int>({ 1, 2, 4, 4, 5 }));
 }
 
-static void test_huffman_canonical_form() {
+static void test_huffman_canonical_form()
+{
     std::unordered_map<char, double> probs;
     probs['B'] = 0.4;
     probs['A'] = 0.3;
     probs['C'] = 0.2;
     probs['D'] = 0.1;
     using Tree = huffman_tree_base<char, double>;
-    auto tree = std::unique_ptr<huffman_tree<char, double>>(Tree::build(probs.begin(),
-                                                                      probs.end(),
-                                                                      [](auto pair){ return pair.first; },
-                                                                      [](auto pair){ return pair.second; })
-                                                            );
+    auto tree = Tree::build(probs.begin(),
+        probs.end(),
+        [](auto pair) { return pair.first; },
+        [](auto pair) { return pair.second; });
     tree->make_canonical();
-    auto encoder = huffman_encoder<char, double>(tree.get());
-    assert(encoder.code('B') == std::vector<bool>({0}));
-    assert(encoder.code('A') == std::vector<bool>({1, 0}));
-    assert(encoder.code('C') == std::vector<bool>({1, 1, 0}));
-    assert(encoder.code('D') == std::vector<bool>({1, 1, 1}));
+    auto encoder = make_encoder(*tree);
+    assert(encoder.code('B') == std::vector<bool>({ 0 }));
+    assert(encoder.code('A') == std::vector<bool>({ 1, 0 }));
+    assert(encoder.code('C') == std::vector<bool>({ 1, 1, 0 }));
+    assert(encoder.code('D') == std::vector<bool>({ 1, 1, 1 }));
 }
 
-static void test_bitstream() {
-    std::vector<bool> data{0, 0, 1, 0, 0, 1, 0, 1}; // 37
+static void test_bitstream()
+{
+    std::vector<bool> data{ 0, 0, 1, 0, 0, 1, 0, 1 }; // 37
     std::ofstream out("test.dat", std::ios_base::out | std::ios_base::binary);
     auto ss = bitstream::wrap_ostream(out);
     int16_t x = 45;
@@ -101,7 +100,7 @@ static void test_bitstream() {
     assert(read_bits[6] == true);
     assert(read_bits[7] == true);
 
-    unlink("test.dat");
+    std::remove("test.dat");
 }
 
 int main()

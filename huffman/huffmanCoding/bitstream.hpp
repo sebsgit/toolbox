@@ -1,15 +1,19 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <exception>
 #include <type_traits>
+#include <vector>
+
+//TODO: create namespace
 
 template <typename Stream>
 class bit_stream_base {
 public:
-    explicit bit_stream_base(Stream& s) : _ss(s)
-    {}
+    explicit bit_stream_base(Stream& s) noexcept
+        : _ss(s)
+    {
+    }
     virtual ~bit_stream_base() = default;
 
     bool good() const { return this->_ss.good(); }
@@ -18,9 +22,10 @@ public:
     bool bad() const { return this->_ss.bad(); }
 
 protected:
-    constexpr size_t buffer_size() const { return sizeof(_buffer) * 8; }
+    constexpr size_t buffer_size() const noexcept { return sizeof(_buffer) * 8; }
 
-    static bool is_little_endian() {
+    constexpr static bool is_little_endian() noexcept
+    {
         const int16_t a = 1;
         return *reinterpret_cast<const int8_t*>(&a) == 1;
     }
@@ -34,28 +39,30 @@ protected:
 template <typename Stream>
 class bit_ostream : public bit_stream_base<Stream> {
 public:
-    explicit bit_ostream(Stream& s) : bit_stream_base<Stream>(s)
+    explicit bit_ostream(Stream& s) noexcept
+        : bit_stream_base<Stream>(s)
     {
     }
     ~bit_ostream()
     {
+        //TODO: try-catch and handle error
         if (this->_count > 0)
             this->_ss << this->_buffer;
     }
     template <typename T>
-    bit_ostream& operator << (const T& t)
+    bit_ostream& operator<<(const T& t)
     {
         static_assert(std::is_pod<T>::value, "cannot output non-pod type");
         const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&t);
         if (this->is_little_endian())
-            for (size_t i=0 ; i<sizeof(t) ; ++i)
+            for (size_t i = 0; i < sizeof(t); ++i)
                 this->write_byte(bytes[i]);
         else
-            for (int32_t i=sizeof(t) - 1 ; i >= 0 ; --i)
+            for (int32_t i = sizeof(t) - 1; i >= 0; --i)
                 this->write_byte(bytes[i]);
         return *this;
     }
-    bit_ostream& operator << (const std::vector<bool>& data)
+    bit_ostream& operator<<(const std::vector<bool>& data)
     {
         for (auto b : data)
             this->write_bit(b);
@@ -63,7 +70,7 @@ public:
     }
     void write_bit(bool bit)
     {
-        this->set_bit(this->buffer_size() - this->_count - 1, bit);
+        this->set_bit(static_cast<int>(this->buffer_size() - this->_count - 1), bit);
         ++this->_count;
         if (this->_count == this->buffer_size()) {
             this->_ss << this->_buffer;
@@ -73,7 +80,7 @@ public:
     }
     void write_byte(uint8_t byte)
     {
-        for (int8_t b = 7 ; b >= 0 ; --b) {
+        for (int8_t b = 7; b >= 0; --b) {
             this->write_bit(byte & (1 << b));
         }
     }
@@ -88,28 +95,30 @@ private:
 template <typename Stream>
 class bit_istream : public bit_stream_base<Stream> {
 public:
-    explicit bit_istream(Stream& s) : bit_stream_base<Stream>(s)
-    {}
+    explicit bit_istream(Stream& s)
+        : bit_stream_base<Stream>(s)
+    {
+    }
     template <typename T>
-    bit_istream& operator >> (T& t)
+    bit_istream& operator>>(T& t)
     {
         static_assert(std::is_pod<T>::value, "cannot write to non-pod type");
         uint8_t* bytes = reinterpret_cast<uint8_t*>(&t);
         if (this->is_little_endian())
-            for (size_t i=0 ; i<sizeof(t) ; ++i) {
+            for (size_t i = 0; i < sizeof(t); ++i) {
                 bytes[i] = this->read_byte();
                 if (this->eof())
                     break;
             }
         else
-            for (int32_t i=sizeof(t) - 1 ; i >= 0 ; --i) {
+            for (int32_t i = sizeof(t) - 1; i >= 0; --i) {
                 bytes[i] = this->read_byte();
                 if (this->eof())
                     break;
             }
         return *this;
     }
-    bit_istream& operator >> (std::vector<bool>& data)
+    bit_istream& operator>>(std::vector<bool>& data)
     {
         while (true) {
             bool bit = this->read_bit();
@@ -125,7 +134,7 @@ public:
             throw std::runtime_error("cannot read, EOF reached.");
         if (this->_count == 0) {
             this->_ss >> this->_buffer;
-            this->_count = this->buffer_size();
+            this->_count = static_cast<uint8_t>(this->buffer_size());
         }
         bool result = this->get_bit(this->_count - 1);
         --this->_count;
@@ -134,7 +143,7 @@ public:
     uint8_t read_byte()
     {
         uint8_t result = 0;
-        for (int8_t b = 7 ; b >= 0 ; --b) {
+        for (int8_t b = 7; b >= 0; --b) {
             bool bit = this->read_bit();
             if (this->eof())
                 break;
@@ -145,6 +154,7 @@ public:
     std::vector<bool> read_bits(size_t count)
     {
         std::vector<bool> result;
+        result.reserve(count);
         this->read_bits(count, std::back_inserter(result));
         return result;
     }
