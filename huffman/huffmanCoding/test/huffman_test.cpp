@@ -21,7 +21,7 @@ TEST_CASE("huffman")
         expected_codes[4] = { 0, 0 };
         expected_codes[5] = { 1, 0 };
 
-        using Tree = huffman::huffman_tree_base<int, float>;
+        using Tree = huffman::huffman_tree<int, float>;
         auto tree = Tree::build(probs.begin(),
             probs.end(),
             [](auto pair) { return pair.first; },
@@ -33,9 +33,13 @@ TEST_CASE("huffman")
         }
         std::vector<bool> code{ 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0 };
         std::vector<int> message;
-        tree->decode(code.begin(), code.end(), std::back_inserter(message));
+        auto res = tree->decode(code.begin(), code.end(), std::back_inserter(message));
+        REQUIRE(res == Tree::decode_result::ok);
         REQUIRE(message.size() == 5);
         REQUIRE(message == std::vector<int>({ 1, 2, 4, 4, 5 }));
+        code = std::vector<bool>{0, 1, 1, 1};
+        res = tree->decode(code.begin(), code.end(), std::back_inserter(message));
+        REQUIRE(res == Tree::decode_result::invalid_code);
     }
 
     SECTION("canonical form")

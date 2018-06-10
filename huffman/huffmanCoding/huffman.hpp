@@ -12,7 +12,6 @@
 
 //TODO:
 // remove helper methods from the tree class
-// more constexpr
 // serialize / deserialize / canonical form
 // configurable "code" type
 // optimality api (entropy etc.)
@@ -23,6 +22,9 @@ namespace huffman {
 
 template <typename Data, typename Probability, typename Code>
 class huffman_tree;
+
+template <typename Data, typename Probability, typename Code>
+class huffman_node;
 
 template <typename Data, typename Probability, typename Code = std::vector<bool>>
 class huffman_tree_base {
@@ -72,7 +74,7 @@ public:
             }
             return *this;
         }
-        const huffman_tree_base& operator*() const { return *this->_current; }
+        const auto& operator*() const { return *static_cast<const huffman_node<Data, Probability, Code>*>(this->_current); }
 
         bool operator==(const iterator_base& other) const { return this->_current == other._current; }
         bool operator!=(const iterator_base& other) const { return !(*this == other); }
@@ -94,18 +96,6 @@ public:
     virtual ~huffman_tree_base() = default;
 
     auto probability() const { return this->_probability; }
-    virtual Data data() const { throw std::runtime_error("data() called on non-leaf node."); }
-
-    virtual code_type code() const
-    {
-        throw std::runtime_error("code() called on non-leaf node.");
-        return code_type();
-    }
-    virtual size_t code_length() const
-    {
-        throw std::runtime_error("code() called on non-leaf node.");
-        return size_t();
-    }
 
     virtual void prepend_bit(bool bit) = 0;
 
@@ -131,8 +121,14 @@ protected:
 template <typename Data, typename Probability, typename Code = std::vector<bool>>
 class huffman_tree : public huffman_tree_base<Data, Probability, Code> {
     using base = huffman_tree_base<Data, Probability, Code>;
+    using leaf = huffman_node<Data, Probability, Code>;
 
 public:
+    enum class decode_result {
+        ok,
+        invalid_code
+    };
+
     huffman_tree(std::unique_ptr<huffman_tree_base<Data, Probability, Code>>&& left, std::unique_ptr<huffman_tree_base<Data, Probability, Code>>&& right)
         : base(left->probability() + right->probability(), base::type::internal_node)
         , _left(std::move(left))
@@ -149,21 +145,22 @@ public:
     base* right() { return this->_right.get(); }
 
     template <typename ForwardIt, typename OutputIt>
-    void decode(ForwardIt begin, ForwardIt end, OutputIt out)
+    decode_result decode(ForwardIt begin, ForwardIt end, OutputIt out)
     {
         const huffman_tree<Data, Probability, Code>* tree = this;
         for (auto it = begin; it != end; it = std::next(it)) {
             auto next = *it ? tree->right() : tree->left();
             if (!next)
-                throw std::runtime_error("invalid code.");
+                return decode_result::invalid_code;
             if (next->is_leaf()) {
-                *out = next->data();
+                *out = static_cast<const leaf*>(next)->data();
                 ++out;
                 tree = this;
             } else {
                 tree = static_cast<const huffman_tree*>(next);
             }
         }
+        return tree == this ? decode_result::ok : decode_result::invalid_code;
     }
 
     void reset()
@@ -172,7 +169,7 @@ public:
         this->_right.reset();
     }
 
-    bool push_node(base* node)
+    bool push_node(leaf* node)
     {
         if (!node || node->code_length() == 0)
             return false;
@@ -181,13 +178,11 @@ public:
         for (size_t i = 0; i < node->code_length() - 1; ++i) {
             bool to_left = (code[i] == false);
             auto& to_insert = (to_left ? current->_left : current->_right);
-            if (!to_insert)
+            if (!to_insert || to_insert->is_leaf())
                 to_insert.reset(new huffman_tree());
             current = static_cast<huffman_tree*>(to_insert.get());
         }
         auto& to_insert = (code[node->code_length() - 1] ? current->_right : current->_left);
-        if (to_insert.get())
-            throw std::runtime_error("node allocated"); //TODO: more descriptive message, trigger with unit test
         to_insert.reset(node);
         return true;
     }
@@ -258,9 +253,9 @@ public:
     {
     }
 
-    Data data() const override { return this->_data; }
-    code_type code() const override { return this->_code; }
-    size_t code_length() const override { return this->_code.size(); }
+    Data data() const { return this->_data; }
+    code_type code() const { return this->_code; }
+    size_t code_length() const { return this->_code.size(); }
 
     void set_code(const code_type& new_code) { this->_code = new_code; }
 
