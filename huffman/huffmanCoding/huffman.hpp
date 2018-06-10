@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <cassert>
 #include <functional>
 #include <iostream>
 #include <iterator>
@@ -12,9 +11,8 @@
 #include <vector>
 
 //TODO:
-// refactoring, cleanups
+// remove helper methods from the tree class
 // more constexpr
-// support no-rtti
 // serialize / deserialize / canonical form
 // configurable "code" type
 // optimality api (entropy etc.)
@@ -30,6 +28,11 @@ template <typename Data, typename Probability, typename Code = std::vector<bool>
 class huffman_tree_base {
 public:
     using code_type = Code;
+
+    enum class type {
+        leaf_node,
+        internal_node
+    };
 
     // iterator
     //TODO: don't inherit std::iterator
@@ -59,7 +62,8 @@ public:
                 if (node->is_leaf()) {
                     this->_current = node;
                     break;
-                } else if (auto p = dynamic_cast<tree_type*>(node)) {
+                } else {
+                    const auto p = static_cast<tree_type*>(node);
                     if (p->right())
                         this->_to_visit.push_back(p->right());
                     if (p->left())
@@ -82,8 +86,9 @@ public:
     using iterator = iterator_base<huffman_tree_base>;
     //
 
-    explicit huffman_tree_base(const Probability& p)
+    explicit huffman_tree_base(const Probability& p, const type t)
         : _probability(p)
+        , _type(t)
     {
     }
     virtual ~huffman_tree_base() = default;
@@ -104,9 +109,7 @@ public:
 
     virtual void prepend_bit(bool bit) = 0;
 
-    virtual bool is_leaf() const { return false; }
-
-    virtual void make_canonical() {}
+    bool is_leaf() const noexcept { return this->_type == type::leaf_node; }
 
     const_iterator begin() const { return const_iterator(this); }
     const_iterator end() const { return const_iterator(nullptr); }
@@ -122,6 +125,7 @@ protected:
 
 protected:
     Probability _probability;
+    const type _type;
 };
 
 template <typename Data, typename Probability, typename Code = std::vector<bool>>
@@ -130,7 +134,7 @@ class huffman_tree : public huffman_tree_base<Data, Probability, Code> {
 
 public:
     huffman_tree(std::unique_ptr<huffman_tree_base<Data, Probability, Code>>&& left, std::unique_ptr<huffman_tree_base<Data, Probability, Code>>&& right)
-        : base(left->probability() + right->probability())
+        : base(left->probability() + right->probability(), base::type::internal_node)
         , _left(std::move(left))
         , _right(std::move(right))
     {
@@ -162,27 +166,16 @@ public:
         }
     }
 
-    void make_canonical() override;
-
-protected:
-    huffman_tree()
-        : base(Probability())
+    void reset()
     {
+        this->_left.reset();
+        this->_right.reset();
     }
 
-    void prepend_bit(bool bit) override
+    bool push_node(base* node)
     {
-        _left->prepend_bit(bit);
-        _right->prepend_bit(bit);
-    }
-
-    base* take_left() { return this->_left.release(); }
-    base* take_right() { return this->_right.release(); }
-
-    void push_node(base* node)
-    {
-        assert(node);
-        assert(node->code_length() > 0);
+        if (!node || node->code_length() == 0)
+            return false;
         const auto code = node->code();
         huffman_tree* current = this;
         for (size_t i = 0; i < node->code_length() - 1; ++i) {
@@ -190,24 +183,23 @@ protected:
             auto& to_insert = (to_left ? current->_left : current->_right);
             if (!to_insert)
                 to_insert.reset(new huffman_tree());
-            current = dynamic_cast<huffman_tree*>(to_insert.get());
+            current = static_cast<huffman_tree*>(to_insert.get());
         }
         auto& to_insert = (code[node->code_length() - 1] ? current->_right : current->_left);
         if (to_insert.get())
             throw std::runtime_error("node allocated"); //TODO: more descriptive message, trigger with unit test
         to_insert.reset(node);
+        return true;
     }
     void invalidate_probabilities() override
     {
         this->_probability = (this->left() ? this->left()->probability() : Probability()) + (this->right() ? this->right()->probability() : Probability());
     }
 
-    static std::string to_string(const std::vector<bool>& v)
-    {
-        std::stringstream ss;
-        std::copy(v.begin(), v.end(), std::ostream_iterator<bool>(ss, ""));
-        return ss.str();
-    }
+
+    base* take_left() { return this->_left.release(); }
+    base* take_right() { return this->_right.release(); }
+
     static std::vector<bool> zeros(size_t length) { return std::vector<bool>(length, false); }
     static void fill_zeros(std::vector<bool>& v, size_t new_length)
     {
@@ -230,6 +222,25 @@ protected:
         }
     }
 
+protected:
+    huffman_tree()
+        : base(Probability(), base::type::internal_node)
+    {
+    }
+
+    void prepend_bit(bool bit) override
+    {
+        _left->prepend_bit(bit);
+        _right->prepend_bit(bit);
+    }
+
+    static std::string to_string(const std::vector<bool>& v)
+    {
+        std::stringstream ss;
+        std::copy(v.begin(), v.end(), std::ostream_iterator<bool>(ss, ""));
+        return ss.str();
+    }
+
 private:
     std::unique_ptr<base> _left;
     std::unique_ptr<base> _right;
@@ -242,7 +253,7 @@ class huffman_node : public huffman_tree_base<Data, Probability, Code> {
 
 public:
     huffman_node(const Data& d, const Probability& p)
-        : base(p)
+        : base(p, base::type::leaf_node)
         , _data(d)
     {
     }
@@ -252,8 +263,6 @@ public:
     size_t code_length() const override { return this->_code.size(); }
 
     void set_code(const code_type& new_code) { this->_code = new_code; }
-
-    virtual bool is_leaf() const override { return true; }
 
 protected:
     void prepend_bit(bool bit) override
@@ -267,53 +276,53 @@ private:
 };
 
 template <typename Data, typename Probability, typename Code>
-void huffman_tree<Data, Probability, Code>::make_canonical()
+void make_canonical(huffman_tree<Data, Probability, Code>& root)
 {
-    if (this->is_leaf())
+    if (root.is_leaf())
         return;
-    using node = huffman_node<Data, Probability, Code>;
+    using leaf_node = huffman_node<Data, Probability, Code>;
+    using internal_node = huffman_tree<Data, Probability, Code>;
     // detach all leaf nodes
-    std::vector<node*> nodes;
-    std::deque<huffman_tree*> to_check;
-    to_check.push_back(this);
+    std::vector<leaf_node*> nodes;
+    std::deque<internal_node*> to_check;
+    to_check.push_back(&root);
     while (!to_check.empty()) {
         auto parent = to_check.back();
         to_check.pop_back();
         if (parent->left()) {
             if (parent->left()->is_leaf())
-                nodes.push_back(dynamic_cast<node*>(parent->take_left()));
+                nodes.push_back(static_cast<leaf_node*>(parent->take_left()));
             else
-                to_check.push_back(dynamic_cast<huffman_tree*>(parent->left()));
+                to_check.push_back(static_cast<internal_node*>(parent->left()));
         }
         if (parent->right()) {
             if (parent->right()->is_leaf())
-                nodes.push_back(dynamic_cast<node*>(parent->take_right()));
+                nodes.push_back(static_cast<leaf_node*>(parent->take_right()));
             else
-                to_check.push_back(dynamic_cast<huffman_tree*>(parent->right()));
+                to_check.push_back(static_cast<internal_node*>(parent->right()));
         }
     }
     if (!nodes.empty()) {
-        this->_left.reset();
-        this->_right.reset();
+        root.reset();
         // sort leaf nodes by code length and probability
-        std::sort(nodes.begin(), nodes.end(), [](const node* left, const node* right) {
+        std::sort(nodes.begin(), nodes.end(), [](const leaf_node* left, const leaf_node* right) {
             return left->code_length() == right->code_length() ? left->probability() > right->probability() : left->code_length() < right->code_length();
         });
         // assign new canonical codes
         size_t last_length = nodes[0]->code_length();
-        Code to_set = zeros(last_length);
+        Code to_set = internal_node::zeros(last_length);
         for (auto& n : nodes) {
             if (n->code_length() != last_length) {
                 last_length = n->code_length();
-                fill_zeros(to_set, last_length);
+                internal_node::fill_zeros(to_set, last_length);
             }
             n->set_code(to_set);
             // insert the new node
-            this->push_node(n);
-            increment_binary(to_set);
+            root.push_node(n);
+            internal_node::increment_binary(to_set);
         }
         // finally rebuild the probabilites
-        this->invalidate_probabilities();
+        root.invalidate_probabilities();
     }
 }
 
@@ -336,7 +345,6 @@ std::unique_ptr<huffman_tree<Data, Probability, Code>> huffman_tree_base<Data, P
     for (auto it = begin; it != end; it = std::next(it)) {
         nodes.push(new huffman_node<Data, Probability, Code>(get_data(*it), get_prob(*it)));
     }
-    assert(!nodes.empty()); //TODO: replace assert
     while (nodes.size() > 1) {
         auto left = std::unique_ptr<Tree>(nodes.top());
         nodes.pop();
@@ -344,7 +352,7 @@ std::unique_ptr<huffman_tree<Data, Probability, Code>> huffman_tree_base<Data, P
         nodes.pop();
         nodes.push(new huffman_tree<Data, Probability, Code>(std::move(left), std::move(right)));
     }
-    return std::unique_ptr<huffman_tree<Data, Probability, Code>>(dynamic_cast<huffman_tree<Data, Probability, Code>*>(nodes.top()));
+    return std::unique_ptr<huffman_tree<Data, Probability, Code>>(static_cast<huffman_tree<Data, Probability, Code>*>(nodes.top()));
 }
 
 template <typename Data, typename Probability, typename Code = std::vector<bool>>

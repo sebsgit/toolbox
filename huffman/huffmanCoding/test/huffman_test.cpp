@@ -50,7 +50,7 @@ TEST_CASE("huffman")
             probs.end(),
             [](auto pair) { return pair.first; },
             [](auto pair) { return pair.second; });
-        tree->make_canonical();
+        huffman::make_canonical(*tree);
         auto encoder = make_encoder(*tree);
         REQUIRE(encoder.code('B') == std::vector<bool>({ 0 }));
         REQUIRE(encoder.code('A') == std::vector<bool>({ 1, 0 }));
