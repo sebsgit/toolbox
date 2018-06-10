@@ -14,6 +14,7 @@
 //TODO:
 // refactoring, create namespace, cleanups
 // more constexpr
+// support no-rtti
 // serialize / deserialize / canonical form
 // configurable "code" type
 // optimality api (entropy etc.)
@@ -222,16 +223,17 @@ protected:
     }
     static void increment_binary(std::vector<bool>& v)
     {
-        assert(!v.empty()); //TODO: something better than assert()
-        int pos = static_cast<int>(v.size()) - 1;
-        while (pos >= 0 && v[pos] == true) {
-            v[pos] = false;
-            --pos;
+        if (!v.empty()) {
+            int pos = static_cast<int>(v.size()) - 1;
+            while (pos >= 0 && v[pos] == true) {
+                v[pos] = false;
+                --pos;
+            }
+            if (pos >= 0)
+                v[pos] = true;
+            else
+                v.insert(v.begin(), true);
         }
-        if (pos >= 0)
-            v[pos] = true;
-        else
-            v.insert(v.begin(), true);
     }
 
 private:
@@ -332,7 +334,7 @@ std::unique_ptr<huffman_tree<Data, Prob, Code>> huffman_tree_base<Data, Prob, Co
     for (auto it = begin; it != end; it = std::next(it)) {
         nodes.push(new huffman_node<Data, Prob, Code>(get_data(*it), get_prob(*it)));
     }
-    assert(!nodes.empty());
+    assert(!nodes.empty()); //TODO: replace assert
     while (nodes.size() > 1) {
         Tree* left = nodes.top();
         nodes.pop();

@@ -5,8 +5,13 @@
 #include <type_traits>
 #include <vector>
 
-//TODO: create namespace
+#if __cpp_if_constexpr >= 201606
+#define if_constexpr if constexpr
+#else
+#define if_constexpr if
+#endif
 
+namespace bitstream {
 template <typename Stream>
 class bit_stream_base {
 public:
@@ -45,20 +50,22 @@ public:
     }
     ~bit_ostream()
     {
-        //TODO: try-catch and handle error
-        if (this->_count > 0)
-            this->_ss << this->_buffer;
+        try {
+            this->flush();
+        } catch (...) {
+            //TODO:...
+        }
     }
     template <typename T>
     bit_ostream& operator<<(const T& t)
     {
         static_assert(std::is_pod<T>::value, "cannot output non-pod type");
         const uint8_t* bytes = reinterpret_cast<const uint8_t*>(&t);
-        if (this->is_little_endian())
-            for (size_t i = 0; i < sizeof(t); ++i)
+        if_constexpr (this->is_little_endian()) 
+            for (size_t i = 0; i < sizeof(t); ++i) 
                 this->write_byte(bytes[i]);
-        else
-            for (int32_t i = sizeof(t) - 1; i >= 0; --i)
+        else 
+            for (int32_t i = sizeof(t) - 1; i >= 0; --i) 
                 this->write_byte(bytes[i]);
         return *this;
     }
@@ -84,6 +91,11 @@ public:
             this->write_bit(byte & (1 << b));
         }
     }
+    void flush()
+    {
+        if (this->_count > 0)
+            this->_ss << this->_buffer;
+    }
 
 private:
     void set_bit(int bit_num, bool bit)
@@ -104,7 +116,7 @@ public:
     {
         static_assert(std::is_pod<T>::value, "cannot write to non-pod type");
         uint8_t* bytes = reinterpret_cast<uint8_t*>(&t);
-        if (this->is_little_endian())
+        if_constexpr (this->is_little_endian())
             for (size_t i = 0; i < sizeof(t); ++i) {
                 bytes[i] = this->read_byte();
                 if (this->eof())
@@ -172,22 +184,20 @@ public:
     }
     void skip(size_t count)
     {
-        while (count > 0) {
-            this->read_bit();
-            if (this->eof())
-                break;
-            --count;
-        }
+        struct ignore_iterator {
+            constexpr auto& operator*() const noexcept { return std::ignore; }
+            constexpr auto& operator++() const noexcept { return *this; }
+        };
+        this->read_bits(count, ignore_iterator());
     }
 
 private:
-    bool get_bit(int bit_num) const
+    bool get_bit(int bit_num) const noexcept
     {
         return (this->_buffer & (1 << bit_num)) != 0;
     }
 };
 
-namespace bitstream {
 template <typename U>
 bit_ostream<U> wrap_ostream(U& stream)
 {
@@ -199,4 +209,6 @@ bit_istream<U> wrap_istream(U& stream)
 {
     return bit_istream<U>(stream);
 }
-}
+} // namespace bitstream
+
+#undef if_constexpr
