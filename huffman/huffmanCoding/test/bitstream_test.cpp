@@ -3,9 +3,35 @@
 
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 TEST_CASE("bitstream")
 {
+    SECTION("simple")
+    {
+        std::stringstream ss;
+        auto out = bitstream::wrap_ostream(ss);
+        out.write_bit(1);
+        out << 0.45f;
+        out.write_bit(1);
+        out.write_bit(0);
+        out.write_bit(1);
+        out << 1.9f;
+        out.write_bit(1);
+        out.flush();
+        auto s = ss.str();
+        REQUIRE_FALSE(s.empty());
+        ss = std::stringstream(s);
+        auto in = bitstream::wrap_istream(ss);
+        REQUIRE(in.read_bit());
+        float tmp = 0.0f;
+        in >> tmp;
+        REQUIRE(tmp == 0.45f);
+        REQUIRE(in.read_bits(3) == std::vector<bool>{1, 0, 1});
+        in >> tmp;
+        REQUIRE(tmp == 1.9f);
+        REQUIRE(in.read_bit());
+    }
     SECTION("file I/O")
     {
         std::vector<bool> data{ 0, 0, 1, 0, 0, 1, 0, 1 }; // 37

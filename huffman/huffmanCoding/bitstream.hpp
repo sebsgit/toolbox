@@ -80,7 +80,7 @@ public:
         this->set_bit(static_cast<int>(this->buffer_size() - this->_count - 1), bit);
         ++this->_count;
         if (this->_count == this->buffer_size()) {
-            this->_ss << this->_buffer;
+            this->_ss.write(reinterpret_cast<const char*>(&this->_buffer), 1);
             this->_buffer = 0;
             this->_count = 0;
         }
@@ -94,7 +94,7 @@ public:
     void flush()
     {
         if (this->_count > 0)
-            this->_ss << this->_buffer;
+            this->_ss.write(reinterpret_cast<const char*>(&this->_buffer), 1);
     }
 
 private:
@@ -145,7 +145,7 @@ public:
         if (this->eof())
             throw std::runtime_error("cannot read, EOF reached.");
         if (this->_count == 0) {
-            this->_ss >> this->_buffer;
+            this->_ss.read(reinterpret_cast<char*>(&this->_buffer), 1);
             this->_count = static_cast<uint8_t>(this->buffer_size());
         }
         bool result = this->get_bit(this->_count - 1);

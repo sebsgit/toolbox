@@ -192,7 +192,6 @@ public:
         this->_probability = (this->left() ? this->left()->probability() : Probability()) + (this->right() ? this->right()->probability() : Probability());
     }
 
-
     base* take_left() { return this->_left.release(); }
     base* take_right() { return this->_right.release(); }
 
@@ -259,6 +258,7 @@ public:
     size_t code_length() const { return this->_code.size(); }
 
     void set_code(const code_type& new_code) { this->_code = new_code; }
+    void set_code(code_type&& new_code) { this->_code = std::move(new_code); }
 
 protected:
     void prepend_bit(bool bit) override
