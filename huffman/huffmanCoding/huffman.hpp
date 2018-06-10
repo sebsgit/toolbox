@@ -17,6 +17,7 @@
 // configurable "code" type
 // optimality api (entropy etc.)
 // debugging api (memory usage etc.)
+// make Probability optional in node
 // optimize
 
 namespace huffman {
