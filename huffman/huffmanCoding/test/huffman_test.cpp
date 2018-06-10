@@ -21,7 +21,7 @@ TEST_CASE("huffman")
         expected_codes[4] = { 0, 0 };
         expected_codes[5] = { 1, 0 };
 
-        using Tree = huffman_tree_base<int, float>;
+        using Tree = huffman::huffman_tree_base<int, float>;
         auto tree = Tree::build(probs.begin(),
             probs.end(),
             [](auto pair) { return pair.first; },
@@ -45,7 +45,7 @@ TEST_CASE("huffman")
         probs['A'] = 0.3;
         probs['C'] = 0.2;
         probs['D'] = 0.1;
-        using Tree = huffman_tree_base<char, double>;
+        using Tree = huffman::huffman_tree_base<char, double>;
         auto tree = Tree::build(probs.begin(),
             probs.end(),
             [](auto pair) { return pair.first; },
