@@ -60,5 +60,6 @@ TEST_CASE("huffman")
         REQUIRE(encoder.code('A') == std::vector<bool>({ 1, 0 }));
         REQUIRE(encoder.code('C') == std::vector<bool>({ 1, 1, 0 }));
         REQUIRE(encoder.code('D') == std::vector<bool>({ 1, 1, 1 }));
+        // [1, 1, 2] + [B, A, C, D]
     }
 }

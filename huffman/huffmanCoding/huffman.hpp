@@ -13,6 +13,7 @@
 //TODO:
 // remove helper methods from the tree class
 // serialize / deserialize / canonical form
+// add build_canonical
 // configurable "code" type
 // optimality api (entropy etc.)
 // debugging api (memory usage etc.)
@@ -218,7 +219,7 @@ public:
     }
 
 protected:
-    huffman_tree()
+    huffman_tree() noexcept
         : base(Probability(), base::type::internal_node)
     {
     }
