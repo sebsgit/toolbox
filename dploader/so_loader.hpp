@@ -68,7 +68,10 @@ public:
         this->close();
     }
     bool is_open() const noexcept { return d_ != nullptr; }
-    void close() { priv::close_handle(d_); }
+    void close() {
+        priv::close_handle(d_);
+        d_ = nullptr;
+    }
     bool has_function(const std::string& name) const {
         return priv::get_symbol(d_, name) != nullptr;
     }
