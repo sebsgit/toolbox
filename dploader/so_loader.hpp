@@ -80,6 +80,9 @@ public:
     std::function<FuncType> function(const std::string& name) const {
         return reinterpret_cast<FuncType*>(priv::get_symbol(d_, name));
     }
+    auto symbol(const std::string& name) const {
+        return priv::get_symbol(d_, name);
+    }
 private:
     priv::handle d_ = nullptr;
 };
