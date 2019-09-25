@@ -16,6 +16,8 @@ namespace opencl_rt {
     DECLARE_CL_API(clGetPlatformInfo);
     DECLARE_CL_API(clGetDeviceIDs);
     DECLARE_CL_API(clGetDeviceInfo);
+    DECLARE_CL_API(clCreateContext);
+    DECLARE_CL_API(clReleaseContext);
 
     bool load(const std::string& libraryPath)
     {
@@ -25,6 +27,8 @@ namespace opencl_rt {
             LOAD_CL_API(clGetPlatformInfo);
             LOAD_CL_API(clGetDeviceIDs);
             LOAD_CL_API(clGetDeviceInfo);
+            LOAD_CL_API(clCreateContext);
+            LOAD_CL_API(clReleaseContext);
         }
         return library_handle.is_open();
     }
@@ -37,7 +41,9 @@ namespace opencl_rt {
     class backend {
     public:
         explicit backend(T h) noexcept : _handle(h) {}
-        auto handle() const noexcept { return _handle; }
+        const auto& handle() const noexcept { return _handle; }
+    protected:
+        void set(T value) noexcept { _handle = value; }
     private:
         T _handle;
     };
@@ -53,6 +59,8 @@ namespace opencl_rt {
     struct device_param_trait<CL_DEVICE_VERSION> { using type = std::string; };
     template <>
     struct device_param_trait<CL_DEVICE_AVAILABLE> { using type = cl_bool; };
+    template <>
+    struct device_param_trait<CL_DEVICE_PLATFORM> { using type = cl_platform_id; };
 
     namespace priv {
         template <typename T>
@@ -104,6 +112,46 @@ namespace opencl_rt {
             std::vector<device> result;
             for (auto d : devices)
                 result.emplace_back(d);
+            return result;
+        }
+    };
+
+    class context : public backend<cl_context>{
+    public:
+        using backend::backend;
+
+        explicit context(device& dev) : backend(create(dev)) {
+
+        }
+        context(context&& other) noexcept : backend(other.handle()){
+            other.set(nullptr);
+        }
+        context& operator = (context&& other) noexcept {
+            if (handle() != other.handle()) {
+                if (handle())
+                    opencl_rt::clReleaseContext(handle());
+                set(other.handle());
+                other.set(nullptr);
+            }
+            return *this;
+        }
+        ~context() {
+            if (handle())
+                opencl_rt::clReleaseContext(handle());
+        }
+
+        context(const context&) = delete;
+        context& operator= (const context&) = delete;
+
+    private:
+        static cl_context create(device& dev) {
+            cl_context_properties properties[] = {CL_CONTEXT_PLATFORM,
+                                                  reinterpret_cast<cl_context_properties>(dev.info<CL_DEVICE_PLATFORM>()),
+                                                  0};
+            cl_int error_code = 0;
+            auto result = opencl_rt::clCreateContext(properties, 1, &dev.handle(), nullptr, nullptr, &error_code);
+            if (error_code != CL_SUCCESS)
+                throw error_code; // TODO
             return result;
         }
     };
