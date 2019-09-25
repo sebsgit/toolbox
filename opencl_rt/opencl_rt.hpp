@@ -4,15 +4,14 @@
 
 #include <CL/cl.h>
 #include <string>
-#include <memory>
 #include <vector>
 
 #define DECLARE_CL_API(name) inline decltype (::name)* name = nullptr
-#define LOAD_CL_API(name) name = reinterpret_cast<decltype(name)>(library_handle->symbol(#name))
+#define LOAD_CL_API(name) name = reinterpret_cast<decltype(name)>(library_handle.symbol(#name))
 
 namespace opencl_rt {
 
-    inline std::unique_ptr<so_loader::library> library_handle;
+    inline so_loader::library library_handle;
     DECLARE_CL_API(clGetPlatformIDs);
     DECLARE_CL_API(clGetPlatformInfo);
     DECLARE_CL_API(clGetDeviceIDs);
@@ -20,18 +19,18 @@ namespace opencl_rt {
 
     bool load(const std::string& libraryPath)
     {
-        library_handle = std::make_unique<so_loader::library>(libraryPath);
-        if (library_handle->is_open()) {
+        library_handle = so_loader::library(libraryPath);
+        if (library_handle.is_open()) {
             LOAD_CL_API(clGetPlatformIDs);
             LOAD_CL_API(clGetPlatformInfo);
             LOAD_CL_API(clGetDeviceIDs);
             LOAD_CL_API(clGetDeviceInfo);
         }
-        return library_handle->is_open();
+        return library_handle.is_open();
     }
     void close()
     {
-        library_handle.reset();
+        library_handle.close();
     }
 
     template <typename T>

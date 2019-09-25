@@ -60,13 +60,32 @@ static void close_handle(handle h){
 
 class library {
 public:
+    library() noexcept = default;
     explicit library(const std::string& path)
         : d_(priv::load(path))
     {
     }
+    library(library&& other) noexcept
+        : d_(other.d_)
+    {
+        other.d_ = nullptr;
+    }
     ~library() {
         this->close();
     }
+
+    library& operator= (library&& other) noexcept {
+        if (this->d_ != other.d_) {
+            priv::close_handle(d_);
+            d_ = other.d_;
+            other.d_ = nullptr;
+        }
+        return *this;
+    }
+
+    library(const library&) = delete;
+    library& operator= (const library&) = delete;
+
     bool is_open() const noexcept { return d_ != nullptr; }
     void close() {
         priv::close_handle(d_);
