@@ -31,6 +31,8 @@ DECLARE_CL_API(clBuildProgram);
 DECLARE_CL_API(clReleaseProgram);
 DECLARE_CL_API(clCreateKernel);
 DECLARE_CL_API(clReleaseKernel);
+DECLARE_CL_API(clCreateBuffer);
+DECLARE_CL_API(clReleaseMemObject);
 
 inline bool load(const std::string& libraryPath)
 {
@@ -50,6 +52,8 @@ inline bool load(const std::string& libraryPath)
         LOAD_CL_API(clReleaseProgram);
         LOAD_CL_API(clCreateKernel);
         LOAD_CL_API(clReleaseKernel);
+        LOAD_CL_API(clCreateBuffer);
+        LOAD_CL_API(clReleaseMemObject);
     }
     return library_handle.is_open();
 }
@@ -172,6 +176,29 @@ public:
     }
 };
 
+class buffer : public backend<cl_mem> {
+public:
+    using backend::backend;
+
+    NON_COPYABLE(buffer);
+
+    buffer(buffer&& other) noexcept
+        : backend(other.handle())
+    {
+        other.set(nullptr);
+    }
+    buffer& operator=(buffer&& other) noexcept
+    {
+        if (handle() != other.handle()) {
+            if (handle())
+                opencl_rt::clReleaseMemObject(handle());
+            set(other.handle());
+            other.set(nullptr);
+        }
+        return *this;
+    }
+};
+
 class context : public backend<cl_context> {
 public:
     using backend::backend;
@@ -212,6 +239,13 @@ public:
         priv::resize(result, size);
         opencl_rt::clGetContextInfo(handle(), param, size, priv::address(result), nullptr);
         return result;
+    }
+
+    buffer createBuffer(cl_mem_flags flags, size_t size, void* host_ptr)
+    {
+        cl_int error_code = 0;
+        auto result = opencl_rt::clCreateBuffer(handle(), flags, size, host_ptr, &error_code);
+        return buffer(result);
     }
 
 private:
@@ -275,6 +309,22 @@ class kernel : public backend<cl_kernel> {
 public:
     using backend::backend;
 
+    kernel(kernel&& other) noexcept
+        : backend(other.handle())
+    {
+        other.set(nullptr);
+    }
+    kernel& operator=(kernel&& other) noexcept
+    {
+        if (handle() != other.handle()) {
+            if (handle())
+                opencl_rt::clReleaseKernel(handle());
+            this->set(other.handle());
+            other.set(nullptr);
+        }
+        return *this;
+    }
+
     ~kernel()
     {
         if (handle())
@@ -291,6 +341,21 @@ public:
     explicit program(context& ctx, const std::string& source)
         : backend(create(ctx, source))
     {
+    }
+    program(program&& other) noexcept
+        : backend(other.handle())
+    {
+        other.set(nullptr);
+    }
+    program& operator=(program&& other) noexcept
+    {
+        if (handle() != other.handle()) {
+            if (handle())
+                opencl_rt::clReleaseProgram(handle());
+            this->set(other.handle());
+            other.set(nullptr);
+        }
+        return *this;
     }
     ~program()
     {
