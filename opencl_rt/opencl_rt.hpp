@@ -4,6 +4,7 @@
 
 #include <CL/cl.h>
 #include <array>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -25,14 +26,19 @@ DECLARE_CL_API(clCreateContext);
 DECLARE_CL_API(clGetContextInfo);
 DECLARE_CL_API(clReleaseContext);
 DECLARE_CL_API(clCreateCommandQueue);
+DECLARE_CL_API(clFinish);
 DECLARE_CL_API(clReleaseCommandQueue);
 DECLARE_CL_API(clCreateProgramWithSource);
 DECLARE_CL_API(clBuildProgram);
 DECLARE_CL_API(clReleaseProgram);
 DECLARE_CL_API(clCreateKernel);
+DECLARE_CL_API(clSetKernelArg);
 DECLARE_CL_API(clReleaseKernel);
 DECLARE_CL_API(clCreateBuffer);
+DECLARE_CL_API(clEnqueueReadBuffer);
 DECLARE_CL_API(clReleaseMemObject);
+DECLARE_CL_API(clEnqueueNDRangeKernel);
+DECLARE_CL_API(clGetProgramBuildInfo);
 
 inline bool load(const std::string& libraryPath)
 {
@@ -46,14 +52,19 @@ inline bool load(const std::string& libraryPath)
         LOAD_CL_API(clGetContextInfo);
         LOAD_CL_API(clReleaseContext);
         LOAD_CL_API(clCreateCommandQueue);
+        LOAD_CL_API(clFinish);
         LOAD_CL_API(clReleaseCommandQueue);
         LOAD_CL_API(clCreateProgramWithSource);
         LOAD_CL_API(clBuildProgram);
         LOAD_CL_API(clReleaseProgram);
         LOAD_CL_API(clCreateKernel);
+        LOAD_CL_API(clSetKernelArg);
         LOAD_CL_API(clReleaseKernel);
         LOAD_CL_API(clCreateBuffer);
+        LOAD_CL_API(clEnqueueReadBuffer);
         LOAD_CL_API(clReleaseMemObject);
+        LOAD_CL_API(clEnqueueNDRangeKernel);
+        LOAD_CL_API(clGetProgramBuildInfo);
     }
     return library_handle.is_open();
 }
@@ -77,6 +88,24 @@ protected:
 private:
     T _handle;
 };
+
+class error : public std::runtime_error {
+public:
+    explicit error(cl_int code, const std::string& extra_info = std::string())
+        : std::runtime_error(extra_info + error_message(code))
+    {
+    }
+
+private:
+    static std::string error_message(cl_int code)
+    {
+        std::stringstream ss;
+        ss << "ERROR: " << code;
+        return ss.str();
+    }
+};
+
+#define THROW_ERROR(code) throw error((code), __PRETTY_FUNCTION__)
 
 template <int param>
 struct device_param_trait;
@@ -257,8 +286,43 @@ private:
         cl_int error_code = 0;
         auto result = opencl_rt::clCreateContext(properties.data(), 1, &dev.handle(), nullptr, nullptr, &error_code);
         if (error_code != CL_SUCCESS)
-            throw error_code; // TODO
+            THROW_ERROR(error_code);
         return result;
+    }
+};
+
+class kernel : public backend<cl_kernel> {
+public:
+    using backend::backend;
+
+    kernel(kernel&& other) noexcept
+        : backend(other.handle())
+    {
+        other.set(nullptr);
+    }
+    kernel& operator=(kernel&& other) noexcept
+    {
+        if (handle() != other.handle()) {
+            if (handle())
+                opencl_rt::clReleaseKernel(handle());
+            this->set(other.handle());
+            other.set(nullptr);
+        }
+        return *this;
+    }
+
+    ~kernel()
+    {
+        if (handle())
+            opencl_rt::clReleaseKernel(handle());
+    }
+
+    template <typename T>
+    void setArg(cl_uint index, const T& value)
+    {
+        auto result = opencl_rt::clSetKernelArg(handle(), index, sizeof(T), &value);
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
     }
 };
 
@@ -292,43 +356,39 @@ public:
         if (handle())
             opencl_rt::clReleaseCommandQueue(handle());
     }
+    template <size_t N>
+    void enqueue(kernel& k, const std::array<size_t, N>& global_work_size, const std::array<size_t, N>& local_work_size)
+    {
+        static_assert(N > 0 && N <= 3);
+        //TODO: events
+        opencl_rt::clEnqueueNDRangeKernel(handle(), k.handle(), N, nullptr, global_work_size.data(), local_work_size.data(), 0, nullptr, nullptr);
+    }
+    void finish()
+    {
+        opencl_rt::clFinish(handle());
+    }
+
+    void enqueue_blocking_read(buffer& buff, size_t offset_in_buff, size_t size, void* destination)
+    {
+        auto result = this->enqueue_read(buff, true, offset_in_buff, size, destination);
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
 
 private:
+    cl_int enqueue_read(buffer& buff, bool block, size_t offset_in_buff, size_t size, void* destination)
+    {
+        return opencl_rt::clEnqueueReadBuffer(handle(), buff.handle(), block, offset_in_buff, size, destination, 0, nullptr, nullptr);
+    }
+
     static cl_command_queue create(context& ctx, device& dev)
     {
         //TODO: profiling
         cl_int error_code = 0;
         auto result = opencl_rt::clCreateCommandQueue(ctx.handle(), dev.handle(), 0, &error_code);
         if (error_code != CL_SUCCESS)
-            throw error_code; //TODO
+            THROW_ERROR(error_code);
         return result;
-    }
-};
-
-class kernel : public backend<cl_kernel> {
-public:
-    using backend::backend;
-
-    kernel(kernel&& other) noexcept
-        : backend(other.handle())
-    {
-        other.set(nullptr);
-    }
-    kernel& operator=(kernel&& other) noexcept
-    {
-        if (handle() != other.handle()) {
-            if (handle())
-                opencl_rt::clReleaseKernel(handle());
-            this->set(other.handle());
-            other.set(nullptr);
-        }
-        return *this;
-    }
-
-    ~kernel()
-    {
-        if (handle())
-            opencl_rt::clReleaseKernel(handle());
     }
 };
 
@@ -366,7 +426,16 @@ public:
     {
         auto result = opencl_rt::clBuildProgram(handle(), 0, nullptr, nullptr, nullptr, nullptr);
         if (result != CL_SUCCESS)
-            throw result; //TODO
+            THROW_ERROR(result);
+    }
+    [[nodiscard]] std::string buildLog(device& dev)
+    {
+        std::string result;
+        size_t size = 0;
+        opencl_rt::clGetProgramBuildInfo(handle(), dev.handle(), CL_PROGRAM_BUILD_LOG, 0, nullptr, &size);
+        result.resize(size);
+        opencl_rt::clGetProgramBuildInfo(handle(), dev.handle(), CL_PROGRAM_BUILD_LOG, size, &result[0], nullptr);
+        return result;
     }
     kernel_class kernel(const std::string& name)
     {
@@ -380,7 +449,7 @@ private:
         auto cstr = source.c_str();
         auto result = opencl_rt::clCreateProgramWithSource(ctx.handle(), 1, &cstr, nullptr, &error_code);
         if (error_code != CL_SUCCESS)
-            throw error_code; //TODO
+            THROW_ERROR(error_code);
         return result;
     }
 };
@@ -402,3 +471,4 @@ private:
 
 #undef DECLARE_CL_API
 #undef LOAD_CL_API
+#undef THROW_ERROR
