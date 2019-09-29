@@ -11,10 +11,6 @@
 #define DECLARE_CL_API(name) inline decltype(::name)*(name) = nullptr
 #define LOAD_CL_API(name) name = reinterpret_cast<decltype(name)>(library_handle.symbol(#name))
 
-#define NON_COPYABLE(Class)       \
-    Class(const Class&) = delete; \
-    Class& operator=(const Class&) = delete
-
 namespace opencl_rt {
 
 inline so_loader::library library_handle;
@@ -39,6 +35,8 @@ DECLARE_CL_API(clEnqueueReadBuffer);
 DECLARE_CL_API(clReleaseMemObject);
 DECLARE_CL_API(clEnqueueNDRangeKernel);
 DECLARE_CL_API(clGetProgramBuildInfo);
+DECLARE_CL_API(clReleaseEvent);
+DECLARE_CL_API(clWaitForEvents);
 
 inline bool load(const std::string& libraryPath)
 {
@@ -65,6 +63,8 @@ inline bool load(const std::string& libraryPath)
         LOAD_CL_API(clReleaseMemObject);
         LOAD_CL_API(clEnqueueNDRangeKernel);
         LOAD_CL_API(clGetProgramBuildInfo);
+        LOAD_CL_API(clReleaseEvent);
+        LOAD_CL_API(clWaitForEvents);
     }
     return library_handle.is_open();
 }
@@ -72,6 +72,15 @@ void close()
 {
     library_handle.close();
 }
+
+class non_copyable {
+public:
+    non_copyable() = default;
+
+private:
+    non_copyable(const non_copyable&) = delete;
+    non_copyable& operator=(const non_copyable&) = delete;
+};
 
 template <typename T>
 class backend {
@@ -81,6 +90,7 @@ public:
     {
     }
     const auto& handle() const noexcept { return _handle; }
+    auto& handle() noexcept { return _handle; }
 
 protected:
     void set(T value) noexcept { _handle = value; }
@@ -162,6 +172,50 @@ namespace priv {
     void* address<std::vector<cl_device_id>>(std::vector<cl_device_id>& param) { return param.data(); }
 }
 
+class event : public backend<cl_event>, public non_copyable {
+public:
+    using backend::backend;
+
+    event() noexcept
+        : backend(nullptr)
+    {
+    }
+    event(event&& other) noexcept
+        : backend(other.handle())
+    {
+        other.set(nullptr);
+    }
+    event& operator=(event&& other) noexcept
+    {
+        if (handle() != other.handle()) {
+            if (handle())
+                opencl_rt::clReleaseEvent(handle());
+            this->set(other.handle());
+            other.set(nullptr);
+        }
+        return *this;
+    }
+    ~event()
+    {
+        if (handle())
+            opencl_rt::clReleaseEvent(handle());
+    }
+    void wait()
+    {
+        auto result = opencl_rt::clWaitForEvents(1, &handle());
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
+    template <typename... Events>
+    static void waitForAll(Events&&... events)
+    {
+        const std::array<cl_event, sizeof...(events)> arr { events.handle()... };
+        auto result = opencl_rt::clWaitForEvents(arr.size(), arr.data());
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
+};
+
 class device : public backend<cl_device_id> {
 public:
     using backend::backend;
@@ -205,11 +259,9 @@ public:
     }
 };
 
-class buffer : public backend<cl_mem> {
+class buffer : public backend<cl_mem>, public non_copyable {
 public:
     using backend::backend;
-
-    NON_COPYABLE(buffer);
 
     buffer(buffer&& other) noexcept
         : backend(other.handle())
@@ -228,11 +280,9 @@ public:
     }
 };
 
-class context : public backend<cl_context> {
+class context : public backend<cl_context>, public non_copyable {
 public:
     using backend::backend;
-
-    NON_COPYABLE(context);
 
     explicit context(device& dev)
         : backend(create(dev))
@@ -326,11 +376,9 @@ public:
     }
 };
 
-class command_queue : public backend<cl_command_queue> {
+class command_queue : public backend<cl_command_queue>, public non_copyable {
 public:
     using backend::backend;
-
-    NON_COPYABLE(command_queue);
 
     command_queue(context& ctx, device& dev)
         : backend(create(ctx, dev))
@@ -356,12 +404,15 @@ public:
         if (handle())
             opencl_rt::clReleaseCommandQueue(handle());
     }
-    template <size_t N>
-    void enqueue(kernel& k, const std::array<size_t, N>& global_work_size, const std::array<size_t, N>& local_work_size)
+    template <size_t N, size_t NumInputEvents = 0>
+    void enqueue(kernel& k,
+        const std::array<size_t, N>& global_work_size,
+        const std::array<size_t, N>& local_work_size,
+        event* output_event = nullptr,
+        const std::array<cl_event, NumInputEvents>& input_events = std::array<cl_event, NumInputEvents>())
     {
         static_assert(N > 0 && N <= 3);
-        //TODO: events
-        opencl_rt::clEnqueueNDRangeKernel(handle(), k.handle(), N, nullptr, global_work_size.data(), local_work_size.data(), 0, nullptr, nullptr);
+        opencl_rt::clEnqueueNDRangeKernel(handle(), k.handle(), N, nullptr, global_work_size.data(), local_work_size.data(), NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
     }
     void finish()
     {
@@ -375,10 +426,24 @@ public:
             THROW_ERROR(result);
     }
 
-private:
-    cl_int enqueue_read(buffer& buff, bool block, size_t offset_in_buff, size_t size, void* destination)
+    template <size_t NumInputEvents = 0>
+    void enqueue_non_blocking_read(buffer& buff,
+        size_t offset_in_buff,
+        size_t size,
+        void* destination,
+        event& output_event,
+        const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        return opencl_rt::clEnqueueReadBuffer(handle(), buff.handle(), block, offset_in_buff, size, destination, 0, nullptr, nullptr);
+        auto result = this->enqueue_read(buff, true, offset_in_buff, size, destination, &output_event, input_events);
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
+
+private:
+    template <size_t NumInputEvents = 0>
+    cl_int enqueue_read(buffer& buff, bool block, size_t offset_in_buff, size_t size, void* destination, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
+    {
+        return opencl_rt::clEnqueueReadBuffer(handle(), buff.handle(), block, offset_in_buff, size, destination, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
     }
 
     static cl_command_queue create(context& ctx, device& dev)
@@ -392,12 +457,10 @@ private:
     }
 };
 
-class program : public backend<cl_program> {
+class program : public backend<cl_program>, public non_copyable {
     using kernel_class = kernel;
 
 public:
-    NON_COPYABLE(program);
-
     explicit program(context& ctx, const std::string& source)
         : backend(create(ctx, source))
     {
