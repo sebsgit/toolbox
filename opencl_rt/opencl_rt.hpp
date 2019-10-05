@@ -32,11 +32,13 @@ DECLARE_CL_API(clSetKernelArg);
 DECLARE_CL_API(clReleaseKernel);
 DECLARE_CL_API(clCreateBuffer);
 DECLARE_CL_API(clEnqueueReadBuffer);
+DECLARE_CL_API(clEnqueueWriteBuffer);
 DECLARE_CL_API(clReleaseMemObject);
 DECLARE_CL_API(clEnqueueNDRangeKernel);
 DECLARE_CL_API(clGetProgramBuildInfo);
 DECLARE_CL_API(clReleaseEvent);
 DECLARE_CL_API(clWaitForEvents);
+DECLARE_CL_API(clGetEventInfo);
 
 inline bool load(const std::string& libraryPath)
 {
@@ -60,11 +62,13 @@ inline bool load(const std::string& libraryPath)
         LOAD_CL_API(clReleaseKernel);
         LOAD_CL_API(clCreateBuffer);
         LOAD_CL_API(clEnqueueReadBuffer);
+        LOAD_CL_API(clEnqueueWriteBuffer);
         LOAD_CL_API(clReleaseMemObject);
         LOAD_CL_API(clEnqueueNDRangeKernel);
         LOAD_CL_API(clGetProgramBuildInfo);
         LOAD_CL_API(clReleaseEvent);
         LOAD_CL_API(clWaitForEvents);
+        LOAD_CL_API(clGetEventInfo);
     }
     return library_handle.is_open();
 }
@@ -324,6 +328,8 @@ public:
     {
         cl_int error_code = 0;
         auto result = opencl_rt::clCreateBuffer(handle(), flags, size, host_ptr, &error_code);
+        if (error_code != CL_SUCCESS)
+            THROW_ERROR(error_code);
         return buffer(result);
     }
 
@@ -425,6 +431,12 @@ public:
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
+    void enqueue_blocking_write(buffer& buff, size_t offset_in_buff, size_t input_size, const void* source)
+    {
+        auto result = this->enqueue_write(buff, true, offset_in_buff, input_size, source);
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
 
     template <size_t NumInputEvents = 0>
     void enqueue_non_blocking_read(buffer& buff,
@@ -434,7 +446,20 @@ public:
         event& output_event,
         const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        auto result = this->enqueue_read(buff, true, offset_in_buff, size, destination, &output_event, input_events);
+        auto result = this->enqueue_read(buff, false, offset_in_buff, size, destination, &output_event, input_events);
+        if (result != CL_SUCCESS)
+            THROW_ERROR(result);
+    }
+
+    template <size_t NumInputEvents = 0>
+    void enqueue_non_blocking_write(buffer& buff,
+        size_t offset_in_buff,
+        size_t input_size,
+        const void* source,
+        event& output_event,
+        const std::array<cl_event, NumInputEvents>& input_events = {})
+    {
+        auto result = this->enqueue_write(buff, false, offset_in_buff, input_size, source, &output_event, input_events);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
@@ -444,6 +469,12 @@ private:
     cl_int enqueue_read(buffer& buff, bool block, size_t offset_in_buff, size_t size, void* destination, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
     {
         return opencl_rt::clEnqueueReadBuffer(handle(), buff.handle(), block, offset_in_buff, size, destination, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
+    }
+
+    template <size_t NumInputEvents = 0>
+    cl_int enqueue_write(buffer& buff, bool block, size_t offset_in_buff, size_t input_size, const void* source, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
+    {
+        return opencl_rt::clEnqueueWriteBuffer(handle(), buff.handle(), block, offset_in_buff, input_size, source, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
     }
 
     static cl_command_queue create(context& ctx, device& dev)
@@ -506,7 +537,7 @@ public:
     }
 
 private:
-    static cl_program create(context& ctx, const std::string& source)
+    [[nodiscard]] static cl_program create(context& ctx, const std::string& source)
     {
         cl_int error_code = 0;
         auto cstr = source.c_str();
