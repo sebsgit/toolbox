@@ -29,6 +29,7 @@ DECLARE_CL_API(clBuildProgram);
 DECLARE_CL_API(clReleaseProgram);
 DECLARE_CL_API(clCreateKernel);
 DECLARE_CL_API(clSetKernelArg);
+DECLARE_CL_API(clGetKernelArgInfo);
 DECLARE_CL_API(clReleaseKernel);
 DECLARE_CL_API(clCreateBuffer);
 DECLARE_CL_API(clEnqueueReadBuffer);
@@ -59,6 +60,7 @@ inline bool load(const std::string& libraryPath)
         LOAD_CL_API(clReleaseProgram);
         LOAD_CL_API(clCreateKernel);
         LOAD_CL_API(clSetKernelArg);
+        LOAD_CL_API(clGetKernelArgInfo);
         LOAD_CL_API(clReleaseKernel);
         LOAD_CL_API(clCreateBuffer);
         LOAD_CL_API(clEnqueueReadBuffer);
@@ -76,15 +78,6 @@ void close()
 {
     library_handle.close();
 }
-
-class non_copyable {
-public:
-    non_copyable() = default;
-
-private:
-    non_copyable(const non_copyable&) = delete;
-    non_copyable& operator=(const non_copyable&) = delete;
-};
 
 template <typename T>
 class backend {
@@ -119,13 +112,16 @@ private:
     }
 };
 
-#define THROW_ERROR(code) throw error((code), __PRETTY_FUNCTION__)
+#define THROW_ERROR(code) throw error((code), std::string(__PRETTY_FUNCTION__))
 
 template <int param>
 struct device_param_trait;
 
 template <int param>
 struct context_param_trait;
+
+template <cl_kernel_arg_info param>
+struct kernel_arg_param_trait;
 
 template <>
 struct device_param_trait<CL_DEVICE_NAME> {
@@ -153,30 +149,35 @@ struct context_param_trait<CL_CONTEXT_DEVICES> {
     using type = std::vector<cl_device_id>;
 };
 
+template <>
+struct kernel_arg_param_trait<CL_KERNEL_ARG_TYPE_NAME> {
+    using type = std::string;
+};
+
 namespace priv {
     template <typename T>
-    void resize(T& /*param*/, size_t /*size*/) {}
+    inline void resize(T& /*param*/, size_t /*size*/) {}
     template <>
-    void resize<std::string>(std::string& param, size_t size)
+    inline void resize<std::string>(std::string& param, size_t size)
     {
         param.resize(size);
     }
     //TODO: generic
     template <>
-    void resize<std::vector<cl_device_id>>(std::vector<cl_device_id>& param, size_t size)
+    inline void resize<std::vector<cl_device_id>>(std::vector<cl_device_id>& param, size_t size)
     {
         param.resize(size);
     }
 
     template <typename T>
-    void* address(T& param) { return &param; }
+    inline void* address(T& param) noexcept { return &param; }
     template <>
-    void* address<std::string>(std::string& param) { return &param[0]; }
+    inline void* address<std::string>(std::string& param) noexcept { return &param[0]; }
     template <>
-    void* address<std::vector<cl_device_id>>(std::vector<cl_device_id>& param) { return param.data(); }
+    inline void* address<std::vector<cl_device_id>>(std::vector<cl_device_id>& param) noexcept { return param.data(); }
 }
 
-class event : public backend<cl_event>, public non_copyable {
+class event : public backend<cl_event> {
 public:
     using backend::backend;
 
@@ -199,6 +200,8 @@ public:
         }
         return *this;
     }
+    event(const event&) = delete;
+    event& operator=(const event&) = delete;
     ~event()
     {
         if (handle())
@@ -211,7 +214,7 @@ public:
             THROW_ERROR(result);
     }
     template <typename... Events>
-    static void waitForAll(Events&&... events)
+    static void wait_for_all(Events&&... events)
     {
         const std::array<cl_event, sizeof...(events)> arr { events.handle()... };
         auto result = opencl_rt::clWaitForEvents(arr.size(), arr.data());
@@ -263,7 +266,8 @@ public:
     }
 };
 
-class buffer : public backend<cl_mem>, public non_copyable {
+template <typename T>
+class buffer : public backend<cl_mem> {
 public:
     using backend::backend;
 
@@ -282,9 +286,13 @@ public:
         }
         return *this;
     }
+    buffer& operator=(const buffer&) = delete;
+    buffer(const buffer&) = delete;
+    ~buffer() noexcept = default;
+    [[nodiscard]] size_t element_size() const noexcept { return sizeof(T); }
 };
 
-class context : public backend<cl_context>, public non_copyable {
+class context : public backend<cl_context> {
 public:
     using backend::backend;
 
@@ -307,6 +315,8 @@ public:
         }
         return *this;
     }
+    context(const context&) = delete;
+    context& operator=(const context&) = delete;
     ~context()
     {
         if (handle())
@@ -324,13 +334,14 @@ public:
         return result;
     }
 
-    buffer createBuffer(cl_mem_flags flags, size_t size, void* host_ptr)
+    template <typename T>
+    buffer<T> create_buffer(cl_mem_flags flags, size_t element_count, T* host_ptr)
     {
         cl_int error_code = 0;
-        auto result = opencl_rt::clCreateBuffer(handle(), flags, size, host_ptr, &error_code);
+        auto result = opencl_rt::clCreateBuffer(handle(), flags, element_count * sizeof(T), host_ptr, &error_code);
         if (error_code != CL_SUCCESS)
             THROW_ERROR(error_code);
-        return buffer(result);
+        return buffer<T>(result);
     }
 
 private:
@@ -366,7 +377,8 @@ public:
         }
         return *this;
     }
-
+    kernel& operator=(const kernel&) = delete;
+    kernel(const kernel&) = delete;
     ~kernel()
     {
         if (handle())
@@ -380,9 +392,23 @@ public:
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
+    template <cl_kernel_arg_info param>
+    auto arg_info(cl_uint index) const
+    {
+        size_t size = 0;
+        auto error_code = opencl_rt::clGetKernelArgInfo(handle(), index, param, 0, nullptr, &size);
+        if (error_code != CL_SUCCESS)
+            THROW_ERROR(error_code);
+        typename kernel_arg_param_trait<param>::type result;
+        priv::resize(result, size);
+        error_code = opencl_rt::clGetKernelArgInfo(handle(), index, param, size, priv::address(result), nullptr);
+        if (error_code != CL_SUCCESS)
+            THROW_ERROR(error_code);
+        return result;
+    }
 };
 
-class command_queue : public backend<cl_command_queue>, public non_copyable {
+class command_queue : public backend<cl_command_queue> {
 public:
     using backend::backend;
 
@@ -405,6 +431,8 @@ public:
         }
         return *this;
     }
+    command_queue(const command_queue&) = delete;
+    command_queue& operator=(const command_queue&) = delete;
     ~command_queue()
     {
         if (handle())
@@ -425,56 +453,58 @@ public:
         opencl_rt::clFinish(handle());
     }
 
-    void enqueue_blocking_read(buffer& buff, size_t offset_in_buff, size_t size, void* destination)
+    template <typename T>
+    void enqueue_blocking_read(buffer<T>& buff, size_t offset_in_buff, size_t size, T* destination)
     {
-        auto result = this->enqueue_read(buff, true, offset_in_buff, size, destination);
+        auto result = this->enqueue_read(buff.handle(), true, offset_in_buff, size, destination);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
-    void enqueue_blocking_write(buffer& buff, size_t offset_in_buff, size_t input_size, const void* source)
+    template <typename T>
+    void enqueue_blocking_write(buffer<T>& buff, size_t offset_in_buff, size_t input_size, const T* source)
     {
-        auto result = this->enqueue_write(buff, true, offset_in_buff, input_size, source);
+        auto result = this->enqueue_write(buff.handle(), true, offset_in_buff, input_size, source);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
 
-    template <size_t NumInputEvents = 0>
-    void enqueue_non_blocking_read(buffer& buff,
+    template <typename T, size_t NumInputEvents = 0>
+    void enqueue_non_blocking_read(buffer<T>& buff,
         size_t offset_in_buff,
         size_t size,
-        void* destination,
+        T* destination,
         event& output_event,
         const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        auto result = this->enqueue_read(buff, false, offset_in_buff, size, destination, &output_event, input_events);
+        auto result = this->enqueue_read(buff.handle(), false, offset_in_buff, size, destination, &output_event, input_events);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
 
-    template <size_t NumInputEvents = 0>
-    void enqueue_non_blocking_write(buffer& buff,
+    template <typename T, size_t NumInputEvents = 0>
+    void enqueue_non_blocking_write(buffer<T>& buff,
         size_t offset_in_buff,
         size_t input_size,
         const void* source,
         event& output_event,
         const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        auto result = this->enqueue_write(buff, false, offset_in_buff, input_size, source, &output_event, input_events);
+        auto result = this->enqueue_write(buff.handle(), false, offset_in_buff, input_size, source, &output_event, input_events);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
 
 private:
     template <size_t NumInputEvents = 0>
-    cl_int enqueue_read(buffer& buff, bool block, size_t offset_in_buff, size_t size, void* destination, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
+    cl_int enqueue_read(cl_mem buff, bool block, size_t offset_in_buff, size_t size, void* destination, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        return opencl_rt::clEnqueueReadBuffer(handle(), buff.handle(), block, offset_in_buff, size, destination, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
+        return opencl_rt::clEnqueueReadBuffer(handle(), buff, block, offset_in_buff, size, destination, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
     }
 
     template <size_t NumInputEvents = 0>
-    cl_int enqueue_write(buffer& buff, bool block, size_t offset_in_buff, size_t input_size, const void* source, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
+    cl_int enqueue_write(cl_mem buff, bool block, size_t offset_in_buff, size_t input_size, const void* source, event* output_event = nullptr, const std::array<cl_event, NumInputEvents>& input_events = {})
     {
-        return opencl_rt::clEnqueueWriteBuffer(handle(), buff.handle(), block, offset_in_buff, input_size, source, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
+        return opencl_rt::clEnqueueWriteBuffer(handle(), buff, block, offset_in_buff, input_size, source, NumInputEvents, NumInputEvents == 0 ? nullptr : input_events.data(), output_event ? &output_event->handle() : nullptr);
     }
 
     static cl_command_queue create(context& ctx, device& dev)
@@ -488,7 +518,7 @@ private:
     }
 };
 
-class program : public backend<cl_program>, public non_copyable {
+class program : public backend<cl_program> {
     using kernel_class = kernel;
 
 public:
@@ -511,18 +541,20 @@ public:
         }
         return *this;
     }
+    program(const program&) = delete;
+    program& operator=(const program&) = delete;
     ~program()
     {
         if (handle())
             opencl_rt::clReleaseProgram(handle());
     }
-    void build()
+    void build(const std::string& options = std::string())
     {
-        auto result = opencl_rt::clBuildProgram(handle(), 0, nullptr, nullptr, nullptr, nullptr);
+        auto result = opencl_rt::clBuildProgram(handle(), 0, nullptr, options.c_str(), nullptr, nullptr);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
-    [[nodiscard]] std::string buildLog(device& dev)
+    [[nodiscard]] std::string build_log(device& dev)
     {
         std::string result;
         size_t size = 0;
@@ -559,6 +591,17 @@ private:
     result.reserve(platforms.size());
     for (auto p : platforms)
         result.emplace_back(p);
+    return result;
+}
+
+[[nodiscard]] inline std::vector<device> gpu_devices()
+{
+    std::vector<device> result;
+    auto platforms = opencl_rt::platforms();
+    for (auto& p : platforms) {
+        auto gpus = p.devices(CL_DEVICE_TYPE_GPU);
+        std::move(gpus.begin(), gpus.end(), std::back_inserter(result));
+    }
     return result;
 }
 }
