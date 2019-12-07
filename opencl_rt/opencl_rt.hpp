@@ -237,6 +237,14 @@ public:
         opencl_rt::clGetDeviceInfo(handle(), param, size, priv::address(result), nullptr);
         return result;
     }
+
+	friend std::ostream& operator<< (std::ostream& out, const device& d)
+    {
+        out << "name: " << d.info<CL_DEVICE_NAME>() << '\n';
+        out << "driver: " << d.info<CL_DRIVER_VERSION>() << '\n';
+        out << "opencl: " << d.info<CL_DEVICE_VERSION>() << '\n';
+        return out;
+    }
 };
 
 class platform : public backend<cl_platform_id> {
@@ -263,6 +271,14 @@ public:
         for (auto d : devices)
             result.emplace_back(d);
         return result;
+    }
+
+    friend std::ostream& operator<< (std::ostream& out, const platform& p)
+    {
+        out << "name: " << p.info(CL_PLATFORM_NAME) << '\n';
+        out << "vendor: " << p.info(CL_PLATFORM_VENDOR) << '\n';
+        out << "extensions: " << p.info(CL_PLATFORM_EXTENSIONS) << '\n';
+        return out;
     }
 };
 
