@@ -1,4 +1,5 @@
 #include "cmsg.hpp"
+
 #include <atomic>
 #include <iostream>
 #include <tuple>
@@ -66,6 +67,34 @@ static void testSimpleSlots()
     sign0(std::make_pair(123, -0.421f));
     ASSERT(var0.x_.first == 123);
     ASSERT(var0.x_.second == -0.421f);
+}
+
+static void testDisconnects()
+{
+    Signal<double> sig0;
+    Variable<double> var;
+
+    ASSERT(sig0.numberOfConnections() == 0);
+    ASSERT(var.numberOfSenders() == 0);
+
+    sig0.connect(&var);
+    ASSERT(sig0.numberOfConnections() == 1);
+    ASSERT(var.numberOfSenders() == 1);
+
+    sig0.disconnect(&var);
+
+    ASSERT(sig0.numberOfConnections() == 0);
+    ASSERT(var.numberOfSenders() == 0);
+
+    Variable<int> var2;
+    {
+        Signal<int> sig1;
+        sig1.connect(&var2);
+
+        ASSERT(sig1.numberOfConnections() == 1);
+        ASSERT(var2.numberOfSenders() == 1);
+    }
+    ASSERT(var2.numberOfSenders() == 0);
 }
 
 static void testMoveConstructSignals()
@@ -217,6 +246,9 @@ static void testSelectiveDisconnect()
             sig0.connect<int>(&recv2, cmsg::overload<int>(&Recv2::receive));
             sig0.connect<double>(&recv2, cmsg::overload<double>(&Recv2::receive));
 
+            ASSERT(var.numberOfSenders() == 1);
+            ASSERT(recv2.numberOfSenders() == 1);
+            ASSERT(recv2.numberOfConnections() == 2);
             ASSERT(sig0.numberOfConnections() == 3);
 
             sig0(10);
@@ -227,6 +259,8 @@ static void testSelectiveDisconnect()
             ASSERT(d == 0.44);
 
             sig0.disconnect<double>(&recv2);
+            ASSERT(recv2.numberOfSenders() == 1);
+            ASSERT(recv2.numberOfConnections() == 1);
             ASSERT(sig0.numberOfConnections() == 2);
 
             sig0(15);
@@ -237,11 +271,15 @@ static void testSelectiveDisconnect()
             ASSERT(d == 0.44);
 
             sig0.connect<double>(&recv2, cmsg::overload<double>(&Recv2::receive));
+            ASSERT(recv2.numberOfSenders() == 1);
+            ASSERT(recv2.numberOfConnections() == 2);
             sig0(5.273);
             ASSERT(d == 5.273);
             ASSERT(sig0.numberOfConnections() == 3);
 
             sig0.disconnect(&recv2);
+            ASSERT(recv2.numberOfConnections() == 0);
+            ASSERT(recv2.numberOfSenders() == 0);
             ASSERT(sig0.numberOfConnections() == 1);
 
             sig0(-88);
@@ -254,6 +292,46 @@ static void testSelectiveDisconnect()
         ASSERT(sig0.numberOfConnections() == 0);
     }
     ASSERT(recv2.numberOfSenders() == 0);
+}
+
+static void testDisconnectSingleChannelAndDelete()
+{
+    class Recv2 : public Receiver<int, double> {
+    public:
+        Recv2(int* outI, double* outD) noexcept
+            : outI_ { outI }
+            , outD_ { outD }
+        {
+        }
+
+        void receive(int i) { *outI_ = i; }
+        void receive(double d) { *outD_ = d; }
+
+    private:
+        int* outI_;
+        double* outD_;
+    };
+
+    int i { 0 };
+    double d { 0.0 };
+    Recv2 recv2(&i, &d);
+
+    Signal<double, int> sig0;
+
+    sig0.connect<int>(&recv2, cmsg::overload<int>(&Recv2::receive));
+    sig0.connect<double>(&recv2, cmsg::overload<double>(&Recv2::receive));
+
+    ASSERT(sig0.numberOfConnections() == 2);
+    ASSERT(recv2.numberOfConnections() == 2);
+    ASSERT(recv2.numberOfSenders() == 1);
+
+    sig0.disconnect<int>(&recv2);
+    ASSERT(sig0.numberOfConnections() == 1);
+    ASSERT(recv2.numberOfConnections() == 1);
+    ASSERT(recv2.numberOfSenders() == 1);
+
+    sig0(0.23);
+    ASSERT(d == 0.23);
 }
 
 static void testDisconnectFromInsideClass()
@@ -348,6 +426,7 @@ int main()
 {
     testSignalTypes();
     testSimpleSlots();
+    testDisconnects();
     testMoveConstructSignals();
     testMoveAssignSignals();
     testMoveConstructAndDeleteReceiver();
@@ -358,6 +437,7 @@ int main()
     testDeleteReceiverBeforeSender();
     testDeleteSenderBeforeReceiver();
     testSelectiveDisconnect();
+    testDisconnectSingleChannelAndDelete();
 
     std::cout << "All tests done (" << assrtCntr << " assertions).\n";
     return 0;

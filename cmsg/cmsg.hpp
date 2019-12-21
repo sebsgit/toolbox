@@ -76,8 +76,8 @@ class Meta {
         std::unique_ptr<ConnDataMemBase<typename std::decay<R>::type>>>;
 
 public:
-    explicit Meta(const void* s) noexcept:
-        sender_{s}
+    explicit Meta(const void* s) noexcept
+        : sender_ { s }
     {
     }
 
@@ -181,7 +181,7 @@ private:
 
 private:
     std::tuple<ReceiverData<Types>...> data_;
-    const void *sender_{nullptr};
+    const void* sender_ { nullptr };
 };
 
 template <typename... Types>
@@ -254,9 +254,10 @@ public:
     }
 
     template <typename IRecv>
-    void disconnect(IRecv* who) noexcept {
+    void disconnect(IRecv* who) noexcept
+    {
         meta_.remove(who);
-        who->unregisterSender(this);
+        who->deleteSender(this);
     }
 
     auto numberOfConnections() const noexcept
@@ -265,7 +266,7 @@ public:
     }
 
 private:
-    Meta<Types...> meta_{this};
+    Meta<Types...> meta_ { this };
 };
 
 template <typename... Types>
@@ -278,6 +279,7 @@ class Receiver {
     struct SenderData {
         const void* who_ { nullptr };
         std::function<void(Receiver<Types...>*)> cb_;
+        int sigCount_ { 0 };
     };
 
 public:
@@ -303,9 +305,30 @@ public:
     }
 
     auto numberOfSenders() const noexcept { return data_.size(); }
+    auto numberOfConnections() const noexcept
+    {
+        int result { 0 };
+        for (auto& d : data_) {
+            result += d.sigCount_;
+        }
+        return result;
+    }
 
 private:
     void unregisterSender(const void* who)
+    {
+        auto it = std::find_if(data_.begin(), data_.end(),
+            [who](const auto& d) { return d.who_ == who; });
+
+        if (it != data_.end()) {
+            --it->sigCount_;
+            if (it->sigCount_ == 0) {
+                data_.erase(it);
+            }
+        }
+    }
+
+    void deleteSender(const void* who)
     {
         auto it = std::remove_if(data_.begin(), data_.end(),
             [who](const auto& d) { return d.who_ == who; });
@@ -317,7 +340,9 @@ private:
         auto it = std::find_if(data_.begin(), data_.end(),
             [who](const auto& d) { return d.who_ == who; });
         if (it == data_.end()) {
-            data_.push_back(SenderData { who, std::move(cb) });
+            data_.push_back(SenderData { who, std::move(cb), 1 });
+        } else {
+            ++it->sigCount_;
         }
     }
 
