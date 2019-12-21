@@ -265,7 +265,7 @@ class Receiver {
 
     struct SenderData {
         const void* who_ { nullptr };
-        std::function<void(const void*)> cb_;
+        std::function<void(Receiver<Types...>*)> cb_;
     };
 
 public:
@@ -300,7 +300,7 @@ private:
         data_.erase(it, data_.end());
     }
 
-    void registerSender(const void* who, std::function<void(const void*)>&& cb)
+    void registerSender(const void* who, std::function<void(Receiver<Types...>*)>&& cb)
     {
         auto it = std::find_if(data_.begin(), data_.end(),
             [who](const auto& d) { return d.who_ == who; });
@@ -309,7 +309,7 @@ private:
         }
     }
 
-    void rebindSender(const void* who, const void* newS, const std::function<void(const void*)>& cb) noexcept
+    void rebindSender(const void* who, const void* newS, const std::function<void(Receiver<Types...>*)>& cb) noexcept
     {
         auto it = std::find_if(data_.begin(), data_.end(),
             [who](const auto& d) { return d.who_ == who; });
