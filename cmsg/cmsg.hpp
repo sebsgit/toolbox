@@ -76,19 +76,24 @@ class Meta {
         std::unique_ptr<ConnDataMemBase<typename std::decay<R>::type>>>;
 
 public:
-    explicit Meta() noexcept = default;
+    explicit Meta(const void* s) noexcept:
+        sender_{s}
+    {
+    }
 
     Meta(const Meta&) = delete;
     Meta& operator=(const Meta&) = delete;
 
     Meta(Meta&& other) noexcept
         : data_ { std::move(other.data_) }
+        , sender_ { other.sender_ }
     {
     }
     Meta& operator=(Meta&& other) noexcept
     {
         if (this != &other) {
             data_ = std::move(other.data_);
+            sender_ = other.sender_;
         }
         return *this;
     }
@@ -144,6 +149,7 @@ public:
 
     void rebindSender(const void* oldS, const void* newS, const std::function<void(const void*)>& cb) noexcept
     {
+        sender_ = newS;
         static_cast<void>(std::initializer_list<int> { (rebindSenders<Types>(oldS, newS, cb), 0)... });
     }
 
@@ -153,7 +159,7 @@ private:
     {
         auto& vc = std::get<ReceiverData<Signal>>(data_);
         for (auto& d : vc) {
-            d->unregisterSender(this);
+            d->unregisterSender(sender_);
         }
     }
 
@@ -175,6 +181,7 @@ private:
 
 private:
     std::tuple<ReceiverData<Types>...> data_;
+    const void *sender_{nullptr};
 };
 
 template <typename... Types>
@@ -187,13 +194,13 @@ public:
 
     Signal(Signal&& other) noexcept
     {
-        other.meta_.rebindSender(&other, this, [this](auto* r) { this->disconnect(r); });
+        other.meta_.rebindSender(&other, this, [this](auto* r) { meta_.remove(r); });
         meta_ = std::move(other.meta_);
     }
     Signal& operator=(Signal&& other) noexcept
     {
         if (this != &other) {
-            other.meta_.rebindSender(&other, this, [this](auto* r) { this->disconnect(r); });
+            other.meta_.rebindSender(&other, this, [this](auto* r) { meta_.remove(r); });
             meta_ = std::move(other.meta_);
         }
         return *this;
@@ -222,7 +229,7 @@ public:
         static_assert(isSending<T>(), "Type not registered for sending");
 
         meta_.template add<T, IRecv>(r, ptr);
-        r->registerSender(this, [this](auto* r) { this->disconnect(r); });
+        r->registerSender(this, [this](auto* r) { meta_.remove(r); });
     }
 
     template <typename IRecv, typename SigParam,
@@ -239,13 +246,18 @@ public:
         return connect<Types...>(r, overload<Types...>(&IRecv::receive));
     }
 
-    template <typename T>
-    void disconnect(const void* who)
+    template <typename T, typename IRecv>
+    void disconnect(IRecv* who)
     {
         meta_.template remove<T>(who);
+        who->unregisterSender(this);
     }
 
-    void disconnect(const void* who) noexcept { meta_.remove(who); }
+    template <typename IRecv>
+    void disconnect(IRecv* who) noexcept {
+        meta_.remove(who);
+        who->unregisterSender(this);
+    }
 
     auto numberOfConnections() const noexcept
     {
@@ -253,7 +265,7 @@ public:
     }
 
 private:
-    Meta<Types...> meta_;
+    Meta<Types...> meta_{this};
 };
 
 template <typename... Types>

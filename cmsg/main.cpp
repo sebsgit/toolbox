@@ -185,6 +185,77 @@ static void testManualDisconnect()
     ASSERT(var1.x_ == "after disconnect");
 }
 
+static void testSelectiveDisconnect()
+{
+    class Recv2 : public Receiver<int, double> {
+    public:
+        Recv2(int* outI, double* outD) noexcept
+            : outI_ { outI }
+            , outD_ { outD }
+        {
+        }
+
+        void receive(int i) { *outI_ = i; }
+        void receive(double d) { *outD_ = d; }
+
+    private:
+        int* outI_;
+        double* outD_;
+    };
+
+    int i { 0 };
+    double d { 0.0 };
+    Recv2 recv2(&i, &d);
+
+    {
+        Signal<int, double, float> sig0;
+
+        {
+            Variable<float> var;
+
+            sig0.connect<float>(&var, &Variable<float>::receive);
+            sig0.connect<int>(&recv2, cmsg::overload<int>(&Recv2::receive));
+            sig0.connect<double>(&recv2, cmsg::overload<double>(&Recv2::receive));
+
+            ASSERT(sig0.numberOfConnections() == 3);
+
+            sig0(10);
+            ASSERT(i == 10);
+            sig0(1.23f);
+            ASSERT(var.x_ == 1.23f);
+            sig0(0.44);
+            ASSERT(d == 0.44);
+
+            sig0.disconnect<double>(&recv2);
+            ASSERT(sig0.numberOfConnections() == 2);
+
+            sig0(15);
+            ASSERT(i == 15);
+            sig0(-81.23f);
+            ASSERT(var.x_ == -81.23f);
+            sig0(4.6632);
+            ASSERT(d == 0.44);
+
+            sig0.connect<double>(&recv2, cmsg::overload<double>(&Recv2::receive));
+            sig0(5.273);
+            ASSERT(d == 5.273);
+            ASSERT(sig0.numberOfConnections() == 3);
+
+            sig0.disconnect(&recv2);
+            ASSERT(sig0.numberOfConnections() == 1);
+
+            sig0(-88);
+            ASSERT(i == 15);
+            sig0(92.0f);
+            ASSERT(var.x_ == 92.0f);
+            sig0(833.22);
+            ASSERT(d == 5.273);
+        }
+        ASSERT(sig0.numberOfConnections() == 0);
+    }
+    ASSERT(recv2.numberOfSenders() == 0);
+}
+
 static void testDisconnectFromInsideClass()
 {
     class Recv : public Receiver<int> {
@@ -286,6 +357,7 @@ int main()
     testDisconnectFromInsideClass();
     testDeleteReceiverBeforeSender();
     testDeleteSenderBeforeReceiver();
+    testSelectiveDisconnect();
 
     std::cout << "All tests done (" << assrtCntr << " assertions).\n";
     return 0;
