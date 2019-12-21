@@ -4,12 +4,12 @@
 #include <tuple>
 
 static std::atomic_int assrtCntr { 0 };
-#define ASSERT(x)                                                   \
-    if (!(x)) {                                                     \
-        std::cout << __FILE__ << ": " << __LINE__ << " : " #x "\n"; \
-        exit(1);                                                    \
-    } else {                                                        \
-        ++assrtCntr;                                                \
+#define ASSERT(x)                                                                              \
+    if (!(x)) {                                                                                \
+        std::cout << "ASSERTION failure -> " << __FILE__ << ": " << __LINE__ << " : " #x "\n"; \
+        exit(1);                                                                               \
+    } else {                                                                                   \
+        ++assrtCntr;                                                                           \
     }
 
 using namespace cmsg;
@@ -66,6 +66,78 @@ static void testSimpleSlots()
     sign0(std::make_pair(123, -0.421f));
     ASSERT(var0.x_.first == 123);
     ASSERT(var0.x_.second == -0.421f);
+}
+
+static void testMoveConstructSignals()
+{
+    Signal<double> sig0;
+    Variable<double> v;
+
+    sig0.connect(&v);
+    ASSERT(sig0.numberOfConnections() == 1);
+
+    sig0(3.14);
+    ASSERT(v.x_ == 3.14);
+
+    Signal<double> newSig { std::move(sig0) };
+    ASSERT(sig0.numberOfConnections() == 0);
+
+    newSig(4.12);
+    ASSERT(v.x_ == 4.12);
+}
+
+static void testMoveAssignSignals()
+{
+    Signal<double> sig0;
+    Variable<double> v;
+
+    sig0.connect(&v);
+    ASSERT(sig0.numberOfConnections() == 1);
+
+    sig0(3.14);
+    ASSERT(v.x_ == 3.14);
+
+    Signal<double> newSig;
+    newSig = std::move(sig0);
+    ASSERT(sig0.numberOfConnections() == 0);
+
+    newSig(4.12);
+    ASSERT(v.x_ == 4.12);
+}
+
+static void testMoveConstructAndDeleteReceiver()
+{
+    int val { 0 };
+    Signal<int> sig0;
+    std::unique_ptr<Slot<int>> recv { std::make_unique<Slot<int>>([&val](int newVal) { val = newVal; }) };
+
+    sig0.connect(recv.get());
+    ASSERT(sig0.numberOfConnections() == 1);
+
+    Signal<int> sig1 = std::move(sig0);
+    ASSERT(sig0.numberOfConnections() == 0);
+    ASSERT(sig1.numberOfConnections() == 1);
+
+    recv.reset();
+    ASSERT(sig1.numberOfConnections() == 0);
+}
+
+static void testMoveAssignAndDeleteReceiver()
+{
+    int val { 0 };
+    Signal<int> sig0;
+    std::unique_ptr<Slot<int>> recv { std::make_unique<Slot<int>>([&val](int newVal) { val = newVal; }) };
+
+    sig0.connect(recv.get());
+    ASSERT(sig0.numberOfConnections() == 1);
+
+    Signal<int> sig1;
+    sig1 = std::move(sig0);
+    ASSERT(sig0.numberOfConnections() == 0);
+    ASSERT(sig1.numberOfConnections() == 1);
+
+    recv.reset();
+    ASSERT(sig1.numberOfConnections() == 0);
 }
 
 static void testAutoDisconnect()
@@ -205,6 +277,10 @@ int main()
 {
     testSignalTypes();
     testSimpleSlots();
+    testMoveConstructSignals();
+    testMoveAssignSignals();
+    testMoveConstructAndDeleteReceiver();
+    testMoveAssignAndDeleteReceiver();
     testAutoDisconnect();
     testManualDisconnect();
     testDisconnectFromInsideClass();

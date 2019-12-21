@@ -43,6 +43,7 @@ class Meta {
         virtual ~ConnDataMemBase() = default;
         virtual void call(const T&) = 0;
         virtual void unregisterSender(const void*) = 0;
+        virtual void rebindSender(const void*, const void*, const std::function<void(const void*)>&) = 0;
         virtual const void* id() const noexcept = 0;
     };
 
@@ -58,6 +59,10 @@ class Meta {
         void unregisterSender(const void* p) override
         {
             who_->unregisterSender(p);
+        }
+        void rebindSender(const void* oldSender, const void* newSender, const std::function<void(const void*)>& cb) override
+        {
+            who_->rebindSender(oldSender, newSender, cb);
         }
         const void* id() const noexcept override { return who_; }
 
@@ -137,6 +142,11 @@ public:
         return result;
     }
 
+    void rebindSender(const void* oldS, const void* newS, const std::function<void(const void*)>& cb) noexcept
+    {
+        static_cast<void>(std::initializer_list<int> { (rebindSenders<Types>(oldS, newS, cb), 0)... });
+    }
+
 private:
     template <typename Signal>
     void callCleanups() noexcept
@@ -154,6 +164,15 @@ private:
         return vc.size();
     }
 
+    template <typename Signal>
+    void rebindSenders(const void* oldS, const void* newS, const std::function<void(const void*)>& cb) noexcept
+    {
+        auto& vc = std::get<ReceiverData<Signal>>(data_);
+        for (auto& d : vc) {
+            d->rebindSender(oldS, newS, cb);
+        }
+    }
+
 private:
     std::tuple<ReceiverData<Types>...> data_;
 };
@@ -167,12 +186,14 @@ public:
     Signal& operator=(const Signal&) = delete;
 
     Signal(Signal&& other) noexcept
-        : meta_ { std::move(other.meta_) }
     {
+        other.meta_.rebindSender(&other, this, [this](auto* r) { this->disconnect(r); });
+        meta_ = std::move(other.meta_);
     }
     Signal& operator=(Signal&& other) noexcept
     {
         if (this != &other) {
+            other.meta_.rebindSender(&other, this, [this](auto* r) { this->disconnect(r); });
             meta_ = std::move(other.meta_);
         }
         return *this;
@@ -201,7 +222,7 @@ public:
         static_assert(isSending<T>(), "Type not registered for sending");
 
         meta_.template add<T, IRecv>(r, ptr);
-        r->registerSender(this, [this, r]() { this->disconnect(r); });
+        r->registerSender(this, [this](auto* r) { this->disconnect(r); });
     }
 
     template <typename IRecv, typename SigParam,
@@ -244,7 +265,7 @@ class Receiver {
 
     struct SenderData {
         const void* who_ { nullptr };
-        std::function<void(void)> cb_;
+        std::function<void(const void*)> cb_;
     };
 
 public:
@@ -268,7 +289,7 @@ public:
     virtual ~Receiver() noexcept
     {
         for (auto& d : data_) {
-            d.cb_();
+            d.cb_(this);
         }
     }
 
@@ -288,12 +309,22 @@ private:
         data_.erase(it, data_.end());
     }
 
-    void registerSender(const void* who, std::function<void(void)>&& cb)
+    void registerSender(const void* who, std::function<void(const void*)>&& cb)
     {
         auto it = std::find_if(data_.begin(), data_.end(),
             [who](const auto& d) { return d.who_ == who; });
         if (it == data_.end()) {
             data_.push_back(SenderData { who, std::move(cb) });
+        }
+    }
+
+    void rebindSender(const void* who, const void* newS, const std::function<void(const void*)>& cb) noexcept
+    {
+        auto it = std::find_if(data_.begin(), data_.end(),
+            [who](const auto& d) { return d.who_ == who; });
+        if (it != data_.end()) {
+            it->who_ = newS;
+            it->cb_ = cb;
         }
     }
 
