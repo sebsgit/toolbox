@@ -274,17 +274,8 @@ public:
     Receiver(const Receiver&) = delete;
     Receiver& operator=(const Receiver&) = delete;
 
-    Receiver(Receiver&& other) noexcept
-        : data_ { std::move(other.data_) }
-    {
-    }
-    Receiver& operator=(Receiver&& other) noexcept
-    {
-        if (this != &other) {
-            data_ = std::move(other.data_);
-        }
-        return *this;
-    }
+    Receiver(Receiver&& other) = delete;
+    Receiver& operator=(Receiver&& other) = delete;
 
     virtual ~Receiver() noexcept
     {
