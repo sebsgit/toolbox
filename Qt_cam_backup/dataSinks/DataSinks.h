@@ -1,0 +1,29 @@
+#ifndef DATASINKS_H
+#define DATASINKS_H
+
+#include <QObject>
+#include <memory>
+
+#include "AbstractDataSource.h"
+#include "AppSettings.h"
+
+class DataSinks : public QObject {
+    Q_OBJECT
+public:
+    explicit DataSinks(QObject* parent = nullptr);
+    ~DataSinks() override;
+
+signals:
+    void configureDone();
+
+public slots:
+    void configure(const BackupTargets& settings);
+    void processData(AbstractDataSource* source, const QByteArray& data);
+    void stop();
+
+private:
+    class Priv;
+    std::unique_ptr<Priv> priv_;
+};
+
+#endif // DATASINKS_H
