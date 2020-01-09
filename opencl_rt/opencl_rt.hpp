@@ -237,6 +237,14 @@ public:
         opencl_rt::clGetDeviceInfo(handle(), param, size, priv::address(result), nullptr);
         return result;
     }
+
+	friend std::ostream& operator<< (std::ostream& out, const device& d)
+    {
+        out << "name: " << d.info<CL_DEVICE_NAME>() << '\n';
+        out << "driver: " << d.info<CL_DRIVER_VERSION>() << '\n';
+        out << "opencl: " << d.info<CL_DEVICE_VERSION>() << '\n';
+        return out;
+    }
 };
 
 class platform : public backend<cl_platform_id> {
@@ -263,6 +271,14 @@ public:
         for (auto d : devices)
             result.emplace_back(d);
         return result;
+    }
+
+    friend std::ostream& operator<< (std::ostream& out, const platform& p)
+    {
+        out << "name: " << p.info(CL_PLATFORM_NAME) << '\n';
+        out << "vendor: " << p.info(CL_PLATFORM_VENDOR) << '\n';
+        out << "extensions: " << p.info(CL_PLATFORM_EXTENSIONS) << '\n';
+        return out;
     }
 };
 
@@ -386,12 +402,20 @@ public:
     }
 
     template <typename T>
-    void setArg(cl_uint index, const T& value)
+    void set_arg(cl_uint index, const T& value)
     {
         auto result = opencl_rt::clSetKernelArg(handle(), index, sizeof(T), &value);
         if (result != CL_SUCCESS)
             THROW_ERROR(result);
     }
+    
+    template <typename ... Args>
+    void set_args(Args && ... args)
+    {
+		cl_uint idx = 0;
+		std::initializer_list<int>{ ( set_arg(idx++, std::forward<Args>(args)), 0) ... };
+	}
+    
     template <cl_kernel_arg_info param>
     auto arg_info(cl_uint index) const
     {
@@ -519,8 +543,6 @@ private:
 };
 
 class program : public backend<cl_program> {
-    using kernel_class = kernel;
-
 public:
     explicit program(context& ctx, const std::string& source)
         : backend(create(ctx, source))
@@ -563,9 +585,9 @@ public:
         opencl_rt::clGetProgramBuildInfo(handle(), dev.handle(), CL_PROGRAM_BUILD_LOG, size, &result[0], nullptr);
         return result;
     }
-    kernel_class kernel(const std::string& name)
+    [[nodiscard]] kernel create_kernel(const std::string& name)
     {
-        return kernel_class(opencl_rt::clCreateKernel(handle(), name.c_str(), nullptr));
+        return kernel(opencl_rt::clCreateKernel(handle(), name.c_str(), nullptr));
     }
 
 private:
