@@ -1,6 +1,7 @@
 #include "MainWindow.h"
 #include "AppSettings.h"
 #include "DataStorageConfig.h"
+#include "PINSelectionWidget.h"
 #include "SourceConfigWidget.h"
 #include "dataSinks/DataSinks.h"
 #include "dataSources/DataProducer.h"
@@ -39,8 +40,22 @@ MainWindow::MainWindow(QWidget* parent)
 
     QState* sourceSelectionState = new QState(&priv_->uiStates);
     QObject::connect(sourceSelectionState, &QState::entered, [this]() {
-        this->setAsCentral(new SourceConfigWidget(priv_->settings));
-        priv_->ui.mainButton->setText(tr("Start"));
+        if (priv_->settings.hasValidPINCode()) {
+            this->setAsCentral(new SourceConfigWidget(priv_->settings));
+            priv_->ui.mainButton->setText(tr("Start"));
+        } else {
+            auto pinSelector = new PINSelectionWidget(priv_->settings);
+            this->setAsCentral(pinSelector);
+            QObject::connect(pinSelector, &PINSelectionWidget::statusMessage, this, &MainWindow::hanleDebugMessage);
+            QObject::connect(pinSelector, &PINSelectionWidget::validPINEntered, [this]() {
+                this->setAsCentral(new SourceConfigWidget(priv_->settings));
+                priv_->ui.mainButton->setText(tr("Start"));
+                priv_->ui.mainButton->setEnabled(true);
+                priv_->ui.settingsButton->setEnabled(true);
+            });
+            priv_->ui.mainButton->setEnabled(false);
+            priv_->ui.settingsButton->setEnabled(false);
+        }
     });
 
     QState* targetSettingsState = new QState(&priv_->uiStates);
@@ -48,12 +63,27 @@ MainWindow::MainWindow(QWidget* parent)
     //TODO: add program-wide PIN code to hide settings
     //TODO: add status / messages window
     QObject::connect(targetSettingsState, &QState::entered, [this]() {
-        this->setAsCentral(new DataStorageConfig(priv_->settings));
-        priv_->ui.mainButton->setText(tr("Back to main window"));
-        priv_->ui.settingsButton->setEnabled(false);
+        if (priv_->settings.hasValidPINCode()) {
+            this->setAsCentral(new DataStorageConfig(priv_->settings));
+            priv_->ui.mainButton->setText(tr("Back to main window"));
+            priv_->ui.settingsButton->setEnabled(false);
+        } else {
+            auto pinSelector = new PINSelectionWidget(priv_->settings);
+            this->setAsCentral(pinSelector);
+            QObject::connect(pinSelector, &PINSelectionWidget::statusMessage, this, &MainWindow::hanleDebugMessage);
+            QObject::connect(pinSelector, &PINSelectionWidget::validPINEntered, [this]() {
+                this->setAsCentral(new DataStorageConfig(priv_->settings));
+                priv_->ui.mainButton->setText(tr("Back to main window"));
+                priv_->ui.mainButton->setEnabled(true);
+                priv_->ui.settingsButton->setEnabled(false);
+            });
+            priv_->ui.mainButton->setEnabled(false);
+            priv_->ui.settingsButton->setEnabled(false);
+        }
     });
     QObject::connect(targetSettingsState, &QState::exited, [this]() {
         priv_->ui.settingsButton->setEnabled(true);
+        priv_->ui.mainButton->setEnabled(true);
     });
 
     QState* configureSourcesState = new QState(&priv_->uiStates);

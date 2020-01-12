@@ -23,8 +23,8 @@ struct EmailTarget {
 
 struct FtpTarget {
     const bool enabled;
-    const QString host;
-    const QString user;
+    const QString host; //TODO: encrypted
+    const QString user; //TODO: encrypted
     const QByteArray passwd; //TODO: encrypted
 };
 
@@ -55,9 +55,13 @@ public:
     BackupTargets currentTargetSettings() const;
     SettingsData currentSettings() const;
 
-signals:
+    bool isPINSaved() const;
+    bool hasValidPINCode() const noexcept;
+    bool isPINCodeValid(const QString& key) const;
 
 public slots:
+    void setPINCode(const QString& pin);
+
     void enableStillImageInput(bool enable);
     void enableSoundInput(bool enable);
     void enableGpsInput(bool enable);

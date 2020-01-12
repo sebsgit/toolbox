@@ -19,6 +19,7 @@ SOURCES += \
     AbstractDataSource.cpp \
     AppSettings.cpp \
     DataStorageConfig.cpp \
+    PINSelectionWidget.cpp \
     SourceConfigWidget.cpp \
     dataSinks/AbstractDataSink.cpp \
     dataSinks/DataSinks.cpp \
@@ -29,14 +30,20 @@ SOURCES += \
     dataSources/PictureDataSource.cpp \
     dataSources/SoundDataSource.cpp \
     main.cpp \
-    MainWindow.cpp
+    MainWindow.cpp \
+    clc/clc_aes.c \
+    clc/clc_encrypt.c
 
 HEADERS += \
     AbstractDataSource.h \
     AppSettings.h \
     DataStorageConfig.h \
     MainWindow.h \
+    PINSelectionWidget.h \
     SourceConfigWidget.h \
+    clc/clc_aes.h \
+    clc/clc_bytes.h \
+    clc/clc_encrypt.h \
     dataSinks/AbstractDataSink.h \
     dataSinks/DataSinks.h \
     dataSinks/DebugSink.h \
@@ -49,6 +56,7 @@ HEADERS += \
 FORMS += \
     DataStorageConfig.ui \
     MainWindow.ui \
+    PINSelectionWidget.ui \
     SourceConfigWidget.ui
 
 # Default rules for deployment.
