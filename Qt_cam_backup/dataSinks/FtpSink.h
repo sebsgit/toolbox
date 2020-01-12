@@ -12,6 +12,9 @@ public:
     explicit FtpSink(const FtpTarget& ftpSettings, QObject* parent = nullptr);
     ~FtpSink() override;
 
+    bool isDone() const noexcept override;
+
+public slots:
     void process(AbstractDataSource* source, const QByteArray& data) override;
 
 private:

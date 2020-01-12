@@ -61,3 +61,8 @@ void DataSinks::stop()
     }
     priv_->threads.clear();
 }
+
+void DataSinks::finalize()
+{
+    qDebug() << "Finalizing data...";
+}

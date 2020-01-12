@@ -70,7 +70,7 @@ MainWindow::MainWindow(QWidget* parent)
     });
     QObject::connect(sendingState, &QState::exited, [this]() {
         priv_->producer.stop();
-        priv_->sink.stop();
+        priv_->sink.finalize();
         setLayoutEnabled(priv_->ui.centralLayout, true);
         priv_->ui.settingsButton->setEnabled(true);
     });

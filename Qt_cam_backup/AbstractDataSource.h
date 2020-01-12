@@ -12,6 +12,7 @@ public:
     virtual QString name() const = 0;
     virtual bool isActive() const = 0;
     virtual QByteArray header() const = 0;
+    virtual QString preferredFileFormat() const = 0;
 
 public slots:
     virtual void start() = 0;

@@ -58,9 +58,13 @@ public:
 signals:
 
 public slots:
+    void enableStillImageInput(bool enable);
+    void enableSoundInput(bool enable);
+    void enableGpsInput(bool enable);
+    void enableVideoInput(bool enable);
+
     void enableLocalStorage(bool enable);
     void setLocalStoragePath(const QString& path);
-
     void enableBackupFtp(bool enable);
     void setFtpSettings(const FtpTarget& settings);
 

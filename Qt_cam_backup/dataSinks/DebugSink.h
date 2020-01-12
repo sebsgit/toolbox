@@ -8,6 +8,8 @@ class DebugSink : public AbstractDataSink {
 public:
     explicit DebugSink(QObject* parent = nullptr);
 
+    bool isDone() const noexcept override;
+
 public slots:
     void process(AbstractDataSource* source, const QByteArray& data) override;
 };

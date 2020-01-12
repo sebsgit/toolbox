@@ -78,6 +78,26 @@ SettingsData AppSettings::currentSettings() const
     return priv_->readCurrent();
 }
 
+void AppSettings::enableStillImageInput(bool enable)
+{
+    priv_->settings.setValue(Priv::srcPicsKey, enable);
+}
+
+void AppSettings::enableSoundInput(bool enable)
+{
+    priv_->settings.setValue(Priv::srcSoundKey, enable);
+}
+
+void AppSettings::enableGpsInput(bool enable)
+{
+    priv_->settings.setValue(Priv::srcGpsKey, enable);
+}
+
+void AppSettings::enableVideoInput(bool enable)
+{
+    priv_->settings.setValue(Priv::srcVideoKey, enable);
+}
+
 void AppSettings::enableLocalStorage(bool enable)
 {
     priv_->settings.setValue(Priv::targetLocalEnabledKey, enable);

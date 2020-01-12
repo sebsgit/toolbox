@@ -20,6 +20,7 @@ public slots:
     void configure(const BackupTargets& settings);
     void processData(AbstractDataSource* source, const QByteArray& data);
     void stop();
+    void finalize();
 
 private:
     class Priv;

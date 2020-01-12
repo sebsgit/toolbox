@@ -61,6 +61,11 @@ QByteArray PictureDataSource::header() const
     return "data:pictures";
 }
 
+QString PictureDataSource::preferredFileFormat() const
+{
+    return "jpg";
+}
+
 void PictureDataSource::start()
 {
     priv_->captureActive = true;

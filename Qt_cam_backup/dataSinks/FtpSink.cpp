@@ -17,7 +17,7 @@ struct FtpUploadWorkItem {
 class FtpSink::Priv {
 public:
     const FtpTarget settings;
-    int64_t picCounter { 0 };
+    uint64_t fileCounter { 0 };
     QQueue<FtpUploadWorkItem> jobQueue;
     QNetworkAccessManager* nam { nullptr };
     bool uploadActive { false };
@@ -35,9 +35,9 @@ public:
         }
         return result;
     }
-    QUrl prepareUrl() const
+    QUrl prepareUrl(const QString& fileFmt) const
     {
-        QUrl url(ftpBaseUrl() + currentDate() + "_pic_" + QString::number(picCounter) + ".jpg");
+        QUrl url(ftpBaseUrl() + currentDate() + '_' + QString::number(fileCounter) + '.' + fileFmt);
         url.setPort(21);
         url.setPassword(settings.passwd);
         return url;
@@ -82,12 +82,16 @@ FtpSink::FtpSink(const FtpTarget& ftpSettings, QObject* parent)
 
 FtpSink::~FtpSink() = default;
 
+bool FtpSink::isDone() const noexcept
+{
+    return !priv_->uploadActive && priv_->jobQueue.empty();
+}
+
 void FtpSink::process(AbstractDataSource* source, const QByteArray& data)
 {
-    Q_UNUSED(source)
     //TODO: create folder for each upload
-    ++priv_->picCounter;
-    FtpUploadWorkItem uploadItem { data, priv_->prepareUrl() };
+    ++priv_->fileCounter;
+    FtpUploadWorkItem uploadItem { data, priv_->prepareUrl(source->preferredFileFormat()) };
     if (!priv_->uploadActive) {
         priv_->startUpload(uploadItem);
     } else {

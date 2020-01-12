@@ -14,6 +14,7 @@ public:
     QString name() const override;
     bool isActive() const override;
     QByteArray header() const override;
+    QString preferredFileFormat() const override;
 
 public slots:
     void setSampleInterval(int msec);

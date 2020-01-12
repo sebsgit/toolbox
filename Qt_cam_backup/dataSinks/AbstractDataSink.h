@@ -10,7 +10,7 @@ class AbstractDataSink : public QObject {
 public:
     explicit AbstractDataSink(QObject* parent = nullptr);
 
-signals:
+    virtual bool isDone() const noexcept = 0;
 
 public slots:
     virtual void process(AbstractDataSource* source, const QByteArray& data) = 0;

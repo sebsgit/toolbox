@@ -2,6 +2,7 @@
 #include "GpsDataSource.h"
 #include "dataSources/PictureDataSource.h"
 
+#include <QtDebug>
 #include <vector>
 
 class DataProducer::Priv {
@@ -37,8 +38,10 @@ void DataProducer::configure(const DataSources& sourceSettings)
             emit error(tr("Camera for still image capture not available"));
         }
     }
-    for (auto& s : priv_->sources)
+    for (auto& s : priv_->sources) {
+        qDebug() << "Prepare source: " << s->name();
         QObject::connect(s.get(), &AbstractDataSource::dataAvailable, this, &DataProducer::onDataAvailable);
+    }
     emit configureDone();
 }
 
