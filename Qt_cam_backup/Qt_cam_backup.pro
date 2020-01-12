@@ -27,6 +27,7 @@ SOURCES += \
     dataSources/DataProducer.cpp \
     dataSources/GpsDataSource.cpp \
     dataSources/PictureDataSource.cpp \
+    dataSources/SoundDataSource.cpp \
     main.cpp \
     MainWindow.cpp
 
@@ -42,7 +43,8 @@ HEADERS += \
     dataSinks/FtpSink.h \
     dataSources/DataProducer.h \
     dataSources/GpsDataSource.h \
-    dataSources/PictureDataSource.h
+    dataSources/PictureDataSource.h \
+    dataSources/SoundDataSource.h
 
 FORMS += \
     DataStorageConfig.ui \

@@ -1,6 +1,7 @@
 #include "DataProducer.h"
-#include "GpsDataSource.h"
+#include "dataSources/GpsDataSource.h"
 #include "dataSources/PictureDataSource.h"
+#include "dataSources/SoundDataSource.h"
 
 #include <QtDebug>
 #include <vector>
@@ -36,6 +37,14 @@ void DataProducer::configure(const DataSources& sourceSettings)
             priv_->sources.push_back(std::move(pictureSource));
         } else {
             emit error(tr("Camera for still image capture not available"));
+        }
+    }
+    if (sourceSettings.sound) {
+        auto soundSource = std::make_unique<SoundDataSource>();
+        if (soundSource->isActive()) {
+            priv_->sources.push_back(std::move(soundSource));
+        } else {
+            emit error(tr("Sound recording not available"));
         }
     }
     for (auto& s : priv_->sources) {
