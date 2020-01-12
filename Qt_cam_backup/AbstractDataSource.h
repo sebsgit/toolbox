@@ -20,6 +20,7 @@ public slots:
 
 signals:
     void dataAvailable(const QByteArray& data);
+    void statusMessage(const QString&);
 
 public slots:
 };

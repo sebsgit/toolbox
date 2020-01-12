@@ -21,6 +21,7 @@ public:
     QQueue<FtpUploadWorkItem> jobQueue;
     QNetworkAccessManager* nam { nullptr };
     bool uploadActive { false };
+    std::function<void(const QString&)> statusMsg;
 
     explicit Priv(const FtpTarget& set) noexcept
         : settings { set }
@@ -45,20 +46,27 @@ public:
 
     void startUpload(const FtpUploadWorkItem& item)
     {
+        statusMsg("start upload: " + item.target.path());
         QNetworkRequest req = QNetworkRequest(item.target);
         uploadActive = true;
         auto reply = nam->put(req, item.source);
         QObject::connect(reply, &QNetworkReply::finished, [this]() {
             qDebug() << "Upload finished";
             if (!jobQueue.empty()) {
-                startUpload(jobQueue.dequeue());
+                auto ftpUp = jobQueue.dequeue();
+                statusMsg("pending uploads: " + QString::number(jobQueue.size()));
+                startUpload(ftpUp);
             } else {
+                statusMsg("Data uploaded to FTP");
                 uploadActive = false;
             }
         });
 
-        QObject::connect(reply, qOverload<QNetworkReply::NetworkError>(&QNetworkReply::error), [](auto err) {
+        QObject::connect(reply, qOverload<QNetworkReply::NetworkError>(&QNetworkReply::error), [this, reply](auto err) {
             qDebug() << "Upload error: " << err;
+            if (err != QNetworkReply::NoError) {
+                statusMsg("Upload error: " + reply->errorString());
+            }
         });
     }
 
@@ -74,8 +82,14 @@ FtpSink::FtpSink(const FtpTarget& ftpSettings, QObject* parent)
     , priv_ { new Priv(ftpSettings) }
 {
     priv_->nam = new QNetworkAccessManager(this);
-    QObject::connect(priv_->nam, &QNetworkAccessManager::finished, [](QNetworkReply* reply) {
+    priv_->statusMsg = [this](const QString& message) {
+        emit statusMessage(message);
+    };
+    QObject::connect(priv_->nam, &QNetworkAccessManager::finished, [this](QNetworkReply* reply) {
         qDebug() << reply->error();
+        if (reply->error() != QNetworkReply::NoError) {
+            emit statusMessage(reply->errorString());
+        }
         reply->deleteLater();
     });
 }
@@ -96,6 +110,6 @@ void FtpSink::process(AbstractDataSource* source, const QByteArray& data)
         priv_->startUpload(uploadItem);
     } else {
         priv_->jobQueue.enqueue(std::move(uploadItem));
-        qDebug() << "pending FTP uploads: " << priv_->jobQueue.size();
+        emit statusMessage("pending uploads: " + QString::number(priv_->jobQueue.size()));
     }
 }

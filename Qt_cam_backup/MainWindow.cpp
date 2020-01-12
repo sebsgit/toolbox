@@ -9,6 +9,7 @@
 #include <QDebug>
 #include <QState>
 #include <QStateMachine>
+#include <QTime>
 
 class MainWindow::Priv {
 public:
@@ -32,6 +33,9 @@ MainWindow::MainWindow(QWidget* parent)
     , priv_(new Priv())
 {
     priv_->ui.setupUi(this);
+
+    QObject::connect(&priv_->producer, &DataProducer::error, this, &MainWindow::hanleDebugMessage);
+    QObject::connect(&priv_->sink, &DataSinks::statusMessage, this, &MainWindow::hanleDebugMessage);
 
     QState* sourceSelectionState = new QState(&priv_->uiStates);
     QObject::connect(sourceSelectionState, &QState::entered, [this]() {
@@ -102,4 +106,15 @@ void MainWindow::setAsCentral(QWidget* widget)
         delete child;
     }
     priv_->ui.centralLayout->addWidget(widget);
+}
+
+void MainWindow::hanleDebugMessage(const QString& message)
+{
+    const int maxMessages { 300 };
+    if (priv_->ui.listWidget_messages->count() > maxMessages) {
+        while (priv_->ui.listWidget_messages->count() > maxMessages / 2)
+            delete priv_->ui.listWidget_messages->takeItem(0);
+    }
+    priv_->ui.listWidget_messages->addItem(QTime::currentTime().toString() + ": " + message);
+    priv_->ui.listWidget_messages->scrollToBottom();
 }

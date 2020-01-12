@@ -49,6 +49,7 @@ void DataProducer::configure(const DataSources& sourceSettings)
     }
     for (auto& s : priv_->sources) {
         qDebug() << "Prepare source: " << s->name();
+        QObject::connect(s.get(), &AbstractDataSource::statusMessage, this, &DataProducer::error);
         QObject::connect(s.get(), &AbstractDataSource::dataAvailable, this, &DataProducer::onDataAvailable);
     }
     emit configureDone();

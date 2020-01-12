@@ -39,6 +39,7 @@ void DataSinks::configure(const BackupTargets& settings)
         priv_->sinks.push_back(std::make_unique<FtpSink>(settings.ftp));
     }
     for (auto& sink : priv_->sinks) {
+        QObject::connect(sink.get(), &AbstractDataSink::statusMessage, this, &DataSinks::statusMessage, Qt::QueuedConnection);
         auto thread = std::make_unique<QThread>();
         sink->moveToThread(thread.get());
         thread->start();

@@ -14,6 +14,9 @@ public:
 private:
     void setAsCentral(QWidget* widget);
 
+private slots:
+    void hanleDebugMessage(const QString& message);
+
 private:
     class Priv;
     std::unique_ptr<Priv> priv_;

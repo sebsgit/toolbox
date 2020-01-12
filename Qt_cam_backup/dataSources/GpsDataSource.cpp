@@ -18,8 +18,9 @@ GpsDataSource::GpsDataSource(QObject* parent)
     priv_->source = QGeoPositionInfoSource::createDefaultSource(this);
     if (priv_->source) {
         QObject::connect(priv_->source, &QGeoPositionInfoSource::positionUpdated, this, &GpsDataSource::gpsDataAvailable);
-        QObject::connect(priv_->source, qOverload<QGeoPositionInfoSource::Error>(&QGeoPositionInfoSource::error), [](auto err) {
+        QObject::connect(priv_->source, qOverload<QGeoPositionInfoSource::Error>(&QGeoPositionInfoSource::error), [this](auto err) {
             qDebug() << "GPS source error: " << err;
+            emit statusMessage("GPS error: " + QString::number(err));
         });
         QObject::connect(&priv_->watchdog, &QTimer::timeout, [this]() {
             if (priv_->source->error() == QGeoPositionInfoSource::Error::NoError) {
@@ -33,8 +34,9 @@ GpsDataSource::GpsDataSource(QObject* parent)
                 }
             }
         });
-    } else
+    } else {
         qDebug() << "GPS device not available";
+    }
 }
 
 GpsDataSource::~GpsDataSource() = default;
@@ -84,8 +86,8 @@ void GpsDataSource::gpsDataAvailable(const QGeoPositionInfo& info)
 {
     qDebug() << info.coordinate().toString();
     if (info.isValid()) {
-        QByteArray data = info.coordinate().toString().toLatin1();
-        emit dataAvailable(std::move(data));
+        QByteArray data = info.timestamp().toString().toLatin1() + " | " + info.coordinate().toString().toLatin1();
+        emit dataAvailable(std::move(data)); //TODO: option to buffer the data and send batches
         priv_->lastUpdate = QDateTime::currentDateTime();
     }
 }

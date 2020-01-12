@@ -12,6 +12,9 @@ public:
 
     virtual bool isDone() const noexcept = 0;
 
+signals:
+    void statusMessage(const QString&);
+
 public slots:
     virtual void process(AbstractDataSource* source, const QByteArray& data) = 0;
 };

@@ -15,6 +15,7 @@ public:
 
 signals:
     void configureDone();
+    void statusMessage(const QString&);
 
 public slots:
     void configure(const BackupTargets& settings);
