@@ -9,12 +9,13 @@ class SoundDataSource : public AbstractDataSource {
     Q_OBJECT
 public:
     explicit SoundDataSource(QObject* parent = nullptr);
-    ~SoundDataSource();
+    ~SoundDataSource() override;
 
     QString name() const override;
     bool isActive() const override;
     QByteArray header() const override;
     QString preferredFileFormat() const override;
+    bool canMergeData() const noexcept override;
 
 public slots:
     void start() override;

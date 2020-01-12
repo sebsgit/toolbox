@@ -11,17 +11,20 @@ namespace {
 struct FtpUploadWorkItem {
     QByteArray source;
     QUrl target;
+    bool canMerge { false };
+    AbstractDataSource* origin { nullptr };
 };
 }
 
 class FtpSink::Priv {
 public:
     const FtpTarget settings;
+    std::function<void(const QString&)> statusMsg;
     uint64_t fileCounter { 0 };
     QQueue<FtpUploadWorkItem> jobQueue;
     QNetworkAccessManager* nam { nullptr };
-    bool uploadActive { false };
-    std::function<void(const QString&)> statusMsg;
+    const int32_t uploadLimitCount { 5 };
+    int32_t currentActiveUploads { 0 };
 
     explicit Priv(const FtpTarget& set) noexcept
         : settings { set }
@@ -44,21 +47,36 @@ public:
         return url;
     }
 
+    void enqueue(FtpUploadWorkItem&& uploadItem)
+    {
+        if (currentActiveUploads <= uploadLimitCount) {
+            startUpload(uploadItem);
+        } else {
+            jobQueue.enqueue(std::move(uploadItem));
+            if (jobQueue.size() > 10) {
+                tryMergePendingData();
+            }
+        }
+    }
+
+private:
     void startUpload(const FtpUploadWorkItem& item)
     {
         statusMsg("start upload: " + item.target.path());
         QNetworkRequest req = QNetworkRequest(item.target);
-        uploadActive = true;
         auto reply = nam->put(req, item.source);
+        ++currentActiveUploads;
         QObject::connect(reply, &QNetworkReply::finished, [this]() {
-            qDebug() << "Upload finished";
-            if (!jobQueue.empty()) {
-                auto ftpUp = jobQueue.dequeue();
-                statusMsg("pending uploads: " + QString::number(jobQueue.size()));
-                startUpload(ftpUp);
-            } else {
+            --currentActiveUploads;
+            while (currentActiveUploads <= uploadLimitCount && !jobQueue.empty()) {
+                if (!jobQueue.empty()) {
+                    auto ftpUp = jobQueue.dequeue();
+                    statusMsg("pending uploads: " + QString::number(jobQueue.size()) + ", active: " + QString::number(currentActiveUploads));
+                    startUpload(ftpUp);
+                }
+            }
+            if (jobQueue.empty() && currentActiveUploads == 0) {
                 statusMsg("Data uploaded to FTP");
-                uploadActive = false;
             }
         });
 
@@ -68,6 +86,36 @@ public:
                 statusMsg("Upload error: " + reply->errorString());
             }
         });
+    }
+
+    void tryMergePendingData()
+    {
+        const int32_t countToMerge { std::count_if(jobQueue.begin(), jobQueue.end(), [](auto& item) { return item.canMerge; }) };
+        if (countToMerge < 2) {
+            return;
+        }
+        QByteArray mergedData;
+        QUrl newTarget;
+        AbstractDataSource* origin { nullptr };
+        int32_t countMerged { 0 };
+        for (int i = jobQueue.size() - 1; i >= 0; --i) {
+            if (jobQueue[i].canMerge) {
+                newTarget = jobQueue[i].target;
+                if (origin) {
+                    //TODO: separate by origin
+                    Q_ASSERT(origin == jobQueue[i].origin);
+                }
+                origin = jobQueue[i].origin;
+                mergedData += jobQueue[i].source + jobQueue[i].origin->dataSeparator();
+                jobQueue.removeAt(i);
+                ++countMerged;
+            }
+        }
+        if (!mergedData.isEmpty()) {
+            FtpUploadWorkItem item { std::move(mergedData), newTarget, true, origin };
+            enqueue(std::move(item));
+            statusMsg(QString("Merged %1 pending items into one upload").arg(countMerged));
+        }
     }
 
     static QString currentDate()
@@ -98,18 +146,13 @@ FtpSink::~FtpSink() = default;
 
 bool FtpSink::isDone() const noexcept
 {
-    return !priv_->uploadActive && priv_->jobQueue.empty();
+    return priv_->currentActiveUploads == 0 && priv_->jobQueue.empty();
 }
 
 void FtpSink::process(AbstractDataSource* source, const QByteArray& data)
 {
     //TODO: create folder for each upload
     ++priv_->fileCounter;
-    FtpUploadWorkItem uploadItem { data, priv_->prepareUrl(source->preferredFileFormat()) };
-    if (!priv_->uploadActive) {
-        priv_->startUpload(uploadItem);
-    } else {
-        priv_->jobQueue.enqueue(std::move(uploadItem));
-        emit statusMessage("pending uploads: " + QString::number(priv_->jobQueue.size()));
-    }
+    FtpUploadWorkItem uploadItem { data, priv_->prepareUrl(source->preferredFileFormat()), source->canMergeData(), source };
+    priv_->enqueue(std::move(uploadItem));
 }

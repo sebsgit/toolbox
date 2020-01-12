@@ -15,6 +15,8 @@ public:
     bool isActive() const override;
     QByteArray header() const override;
     QString preferredFileFormat() const override;
+    bool canMergeData() const noexcept override;
+    QByteArray dataSeparator() const noexcept override;
 
 public slots:
     void setSampleInterval(int msec);

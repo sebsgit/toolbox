@@ -92,6 +92,11 @@ QString SoundDataSource::preferredFileFormat() const
     return "mp4";
 }
 
+bool SoundDataSource::canMergeData() const noexcept
+{
+    return false;
+}
+
 void SoundDataSource::start()
 {
     priv_->recorder.record();

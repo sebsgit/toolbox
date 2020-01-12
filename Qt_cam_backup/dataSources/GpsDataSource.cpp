@@ -61,6 +61,16 @@ QString GpsDataSource::preferredFileFormat() const
     return "gps";
 }
 
+bool GpsDataSource::canMergeData() const noexcept
+{
+    return true;
+}
+
+QByteArray GpsDataSource::dataSeparator() const noexcept
+{
+    return QByteArray("\n");
+}
+
 void GpsDataSource::setSampleInterval(int msec)
 {
     if (priv_->source)

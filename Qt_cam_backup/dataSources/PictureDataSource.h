@@ -14,6 +14,7 @@ public:
     bool isActive() const override;
     QByteArray header() const override;
     QString preferredFileFormat() const override;
+    bool canMergeData() const noexcept override;
 
 public slots:
     void start() override;

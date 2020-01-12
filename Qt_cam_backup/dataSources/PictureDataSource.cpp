@@ -66,6 +66,11 @@ QString PictureDataSource::preferredFileFormat() const
     return "jpg";
 }
 
+bool PictureDataSource::canMergeData() const noexcept
+{
+    return false;
+}
+
 void PictureDataSource::start()
 {
     priv_->captureActive = true;
