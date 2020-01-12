@@ -74,7 +74,7 @@ SoundDataSource::~SoundDataSource()
 
 QString SoundDataSource::name() const
 {
-    return "SoundDevice";
+    return "SoundDevice: " + priv_->recorder.audioInput();
 }
 
 bool SoundDataSource::isActive() const
