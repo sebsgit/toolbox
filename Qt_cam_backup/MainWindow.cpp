@@ -38,6 +38,9 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(&priv_->producer, &DataProducer::error, this, &MainWindow::hanleDebugMessage);
     QObject::connect(&priv_->sink, &DataSinks::statusMessage, this, &MainWindow::hanleDebugMessage);
 
+    //TODO: a separate state in the UI for PIN selection
+    //QState * pinSelectionState = new QState(&priv_->uiStates);
+
     QState* sourceSelectionState = new QState(&priv_->uiStates);
     QObject::connect(sourceSelectionState, &QState::entered, [this]() {
         if (priv_->settings.hasValidPINCode()) {
@@ -59,27 +62,10 @@ MainWindow::MainWindow(QWidget* parent)
     });
 
     QState* targetSettingsState = new QState(&priv_->uiStates);
-
-    //TODO: add program-wide PIN code to hide settings
-    //TODO: add status / messages window
     QObject::connect(targetSettingsState, &QState::entered, [this]() {
-        if (priv_->settings.hasValidPINCode()) {
-            this->setAsCentral(new DataStorageConfig(priv_->settings));
-            priv_->ui.mainButton->setText(tr("Back to main window"));
-            priv_->ui.settingsButton->setEnabled(false);
-        } else {
-            auto pinSelector = new PINSelectionWidget(priv_->settings);
-            this->setAsCentral(pinSelector);
-            QObject::connect(pinSelector, &PINSelectionWidget::statusMessage, this, &MainWindow::hanleDebugMessage);
-            QObject::connect(pinSelector, &PINSelectionWidget::validPINEntered, [this]() {
-                this->setAsCentral(new DataStorageConfig(priv_->settings));
-                priv_->ui.mainButton->setText(tr("Back to main window"));
-                priv_->ui.mainButton->setEnabled(true);
-                priv_->ui.settingsButton->setEnabled(false);
-            });
-            priv_->ui.mainButton->setEnabled(false);
-            priv_->ui.settingsButton->setEnabled(false);
-        }
+        this->setAsCentral(new DataStorageConfig(priv_->settings));
+        priv_->ui.mainButton->setText(tr("Back to main window"));
+        priv_->ui.settingsButton->setEnabled(false);
     });
     QObject::connect(targetSettingsState, &QState::exited, [this]() {
         priv_->ui.settingsButton->setEnabled(true);
