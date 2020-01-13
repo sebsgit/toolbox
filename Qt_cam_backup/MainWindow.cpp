@@ -38,27 +38,23 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(&priv_->producer, &DataProducer::error, this, &MainWindow::hanleDebugMessage);
     QObject::connect(&priv_->sink, &DataSinks::statusMessage, this, &MainWindow::hanleDebugMessage);
 
-    //TODO: a separate state in the UI for PIN selection
-    //QState * pinSelectionState = new QState(&priv_->uiStates);
-
+    QState* pinSelectionState = new QState(&priv_->uiStates);
     QState* sourceSelectionState = new QState(&priv_->uiStates);
+
+    QObject::connect(pinSelectionState, &QState::entered, [this, pinSelectionState, sourceSelectionState]() {
+        auto pinSelector = new PINSelectionWidget(priv_->settings);
+        this->setAsCentral(pinSelector);
+        pinSelectionState->addTransition(pinSelector, &PINSelectionWidget::validPINEntered, sourceSelectionState);
+        QObject::connect(pinSelector, &PINSelectionWidget::statusMessage, this, &MainWindow::hanleDebugMessage);
+        priv_->ui.mainButton->setEnabled(false);
+        priv_->ui.settingsButton->setEnabled(false);
+    });
+
     QObject::connect(sourceSelectionState, &QState::entered, [this]() {
-        if (priv_->settings.hasValidPINCode()) {
-            this->setAsCentral(new SourceConfigWidget(priv_->settings));
-            priv_->ui.mainButton->setText(tr("Start"));
-        } else {
-            auto pinSelector = new PINSelectionWidget(priv_->settings);
-            this->setAsCentral(pinSelector);
-            QObject::connect(pinSelector, &PINSelectionWidget::statusMessage, this, &MainWindow::hanleDebugMessage);
-            QObject::connect(pinSelector, &PINSelectionWidget::validPINEntered, [this]() {
-                this->setAsCentral(new SourceConfigWidget(priv_->settings));
-                priv_->ui.mainButton->setText(tr("Start"));
-                priv_->ui.mainButton->setEnabled(true);
-                priv_->ui.settingsButton->setEnabled(true);
-            });
-            priv_->ui.mainButton->setEnabled(false);
-            priv_->ui.settingsButton->setEnabled(false);
-        }
+        this->setAsCentral(new SourceConfigWidget(priv_->settings));
+        priv_->ui.mainButton->setText(tr("Start"));
+        priv_->ui.mainButton->setEnabled(true);
+        priv_->ui.settingsButton->setEnabled(true);
     });
 
     QState* targetSettingsState = new QState(&priv_->uiStates);
@@ -109,7 +105,7 @@ MainWindow::MainWindow(QWidget* parent)
     });
     QObject::connect(&priv_->producer, &DataProducer::dataAvailable, &priv_->sink, &DataSinks::processData);
 
-    priv_->uiStates.setInitialState(sourceSelectionState);
+    priv_->uiStates.setInitialState(pinSelectionState);
     priv_->uiStates.start();
 }
 
@@ -118,7 +114,9 @@ MainWindow::~MainWindow() = default;
 void MainWindow::setAsCentral(QWidget* widget)
 {
     while (auto child = priv_->ui.centralLayout->takeAt(0)) {
-        delete child->widget();
+        if (child->widget()) {
+            child->widget()->deleteLater();
+        }
         delete child;
     }
     priv_->ui.centralLayout->addWidget(widget);

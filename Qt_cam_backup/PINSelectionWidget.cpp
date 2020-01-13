@@ -34,11 +34,13 @@ PINSelectionWidget::PINSelectionWidget(AppSettings& settings, QWidget* parent)
     QObject::connect(ui_->lineEdit_PIN_1, &QLineEdit::editingFinished, checkPIN);
     QObject::connect(ui_->lineEdit_PIN_2, &QLineEdit::editingFinished, checkPIN);
 
+#ifndef Q_OS_WIN
     QTimer::singleShot(0, [this]() {
         QEvent event(QEvent::RequestSoftwareInputPanel);
         ui_->lineEdit_PIN_1->setFocus();
         qApp->sendEvent(ui_->lineEdit_PIN_1, &event);
     });
+#endif
 }
 
 PINSelectionWidget::~PINSelectionWidget() = default;
