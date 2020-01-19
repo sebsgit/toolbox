@@ -10,7 +10,7 @@ public:
     {
     }
     AppSettings& settings;
-    Ui::DataStorageConfig ui;
+    Ui::DataStorageConfig ui = {};
 };
 
 DataStorageConfig::DataStorageConfig(AppSettings& settings, QWidget* parent)

@@ -8,7 +8,7 @@ public:
     {
     }
 
-    Ui::SourceConfigWidget ui;
+    Ui::SourceConfigWidget ui = {};
     AppSettings& settings;
 };
 

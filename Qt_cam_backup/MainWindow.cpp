@@ -14,7 +14,7 @@
 
 class MainWindow::Priv {
 public:
-    Ui::MainWindow ui;
+    Ui::MainWindow ui = {};
     AppSettings settings;
     QStateMachine uiStates;
     DataProducer producer;
@@ -38,8 +38,8 @@ MainWindow::MainWindow(QWidget* parent)
     QObject::connect(&priv_->producer, &DataProducer::error, this, &MainWindow::hanleDebugMessage);
     QObject::connect(&priv_->sink, &DataSinks::statusMessage, this, &MainWindow::hanleDebugMessage);
 
-    QState* pinSelectionState = new QState(&priv_->uiStates);
-    QState* sourceSelectionState = new QState(&priv_->uiStates);
+    auto pinSelectionState = new QState(&priv_->uiStates);
+    auto sourceSelectionState = new QState(&priv_->uiStates);
 
     QObject::connect(pinSelectionState, &QState::entered, [this, pinSelectionState, sourceSelectionState]() {
         auto pinSelector = new PINSelectionWidget(priv_->settings);
@@ -57,7 +57,7 @@ MainWindow::MainWindow(QWidget* parent)
         priv_->ui.settingsButton->setEnabled(true);
     });
 
-    QState* targetSettingsState = new QState(&priv_->uiStates);
+    auto targetSettingsState = new QState(&priv_->uiStates);
     QObject::connect(targetSettingsState, &QState::entered, [this]() {
         this->setAsCentral(new DataStorageConfig(priv_->settings));
         priv_->ui.mainButton->setText(tr("Back to main window"));
@@ -68,16 +68,16 @@ MainWindow::MainWindow(QWidget* parent)
         priv_->ui.mainButton->setEnabled(true);
     });
 
-    QState* configureSourcesState = new QState(&priv_->uiStates);
+    auto configureSourcesState = new QState(&priv_->uiStates);
     QObject::connect(configureSourcesState, &QState::entered, [this]() {
         priv_->producer.configure(priv_->settings.currentSourceSettings());
     });
-    QState* configureSinksState = new QState(&priv_->uiStates);
+    auto configureSinksState = new QState(&priv_->uiStates);
     QObject::connect(configureSinksState, &QState::entered, [this]() {
         priv_->sink.configure(priv_->settings.currentTargetSettings());
     });
 
-    QState* sendingState = new QState(&priv_->uiStates);
+    auto sendingState = new QState(&priv_->uiStates);
     QObject::connect(sendingState, &QState::entered, [this]() {
         priv_->producer.start();
         setLayoutEnabled(priv_->ui.centralLayout, false);

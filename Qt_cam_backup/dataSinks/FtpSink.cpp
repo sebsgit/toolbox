@@ -14,7 +14,7 @@ struct FtpUploadWorkItem {
     bool canMerge { false };
     AbstractDataSource* origin { nullptr };
 };
-}
+} // namespace
 
 class FtpSink::Priv {
 public:

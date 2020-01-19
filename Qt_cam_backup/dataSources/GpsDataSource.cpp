@@ -97,7 +97,7 @@ void GpsDataSource::gpsDataAvailable(const QGeoPositionInfo& info)
     qDebug() << info.coordinate().toString();
     if (info.isValid()) {
         QByteArray data = info.timestamp().toString().toLatin1() + " | " + info.coordinate().toString().toLatin1();
-        emit dataAvailable(std::move(data)); //TODO: option to buffer the data and send batches
+        emit dataAvailable(data);
         priv_->lastUpdate = QDateTime::currentDateTime();
     }
 }

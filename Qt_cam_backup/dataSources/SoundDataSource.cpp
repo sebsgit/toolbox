@@ -56,7 +56,7 @@ SoundDataSource::SoundDataSource(QObject* parent)
             priv_->outputLocation = location;
             qDebug() << "output loc: " << location;
         });
-        QAudioProbe* probe = new QAudioProbe(this);
+        auto probe = new QAudioProbe(this);
         const bool status = probe->setSource(&priv_->recorder);
         if (status) {
             QObject::connect(probe, &QAudioProbe::audioBufferProbed, [](const QAudioBuffer& buffer) {
@@ -68,9 +68,7 @@ SoundDataSource::SoundDataSource(QObject* parent)
     }
 }
 
-SoundDataSource::~SoundDataSource()
-{
-}
+SoundDataSource::~SoundDataSource() = default;
 
 QString SoundDataSource::name() const
 {

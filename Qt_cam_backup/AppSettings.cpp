@@ -38,14 +38,6 @@ public:
         return input + QByteArray(missing, '\0');
     }
 
-    static QByteArray stripN(const QByteArray& input, int numAdded)
-    {
-        if (numAdded == 0) {
-            return input;
-        }
-        return input.chopped(numAdded);
-    }
-
     QByteArray encrypt(const QByteArray& input) const
     {
         int extraChars = 0;
@@ -53,10 +45,13 @@ public:
         QByteArray result = s;
         const QByteArray pwd = pinCode.toLatin1();
         clc_aes_key key;
-        clc_aes_init_key(&key, reinterpret_cast<const unsigned char*>(pwd.constData()), pwd.size(), clc_cipher_type::CLC_AES_256);
+        clc_aes_init_key(&key,
+            reinterpret_cast<const unsigned char*>(pwd.constData()),
+            static_cast<size_t>(pwd.size()),
+            clc_cipher_type::CLC_AES_256);
         clc_aes_encrypt(reinterpret_cast<unsigned char*>(result.data()),
             reinterpret_cast<const unsigned char*>(s.constData()),
-            s.size(),
+            static_cast<size_t>(s.size()),
             key,
             clc_cipher_type::CLC_AES_256);
         return result;
@@ -67,10 +62,13 @@ public:
         QByteArray result = s;
         const QByteArray pwd = pinCode.toLatin1();
         clc_aes_key key;
-        clc_aes_init_key(&key, reinterpret_cast<const unsigned char*>(pwd.constData()), pwd.size(), clc_cipher_type::CLC_AES_256);
+        clc_aes_init_key(&key,
+            reinterpret_cast<const unsigned char*>(pwd.constData()),
+            static_cast<size_t>(pwd.size()),
+            clc_cipher_type::CLC_AES_256);
         clc_aes_decrypt(reinterpret_cast<unsigned char*>(result.data()),
             reinterpret_cast<const unsigned char*>(s.constData()),
-            s.size(),
+            static_cast<size_t>(s.size()),
             key,
             clc_cipher_type::CLC_AES_256);
         return result;

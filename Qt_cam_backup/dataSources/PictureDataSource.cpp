@@ -31,7 +31,8 @@ PictureDataSource::PictureDataSource(QObject* parent)
             priv_->camera->setCaptureMode(QCamera::CaptureStillImage);
             priv_->capture = new QCameraImageCapture(priv_->camera, this);
             priv_->capture->setCaptureDestination(QCameraImageCapture::CaptureDestination::CaptureToBuffer);
-            QObject::connect(priv_->capture, &QCameraImageCapture::imageCaptured, [this](int, const QImage& image) {
+            QObject::connect(priv_->capture, &QCameraImageCapture::imageCaptured, [this](int id, const QImage& image) {
+                Q_UNUSED(id)
                 QByteArray bytes;
                 QBuffer buffer(&bytes);
                 QImageWriter writer(&buffer, "JPEG");
@@ -77,7 +78,7 @@ void PictureDataSource::start()
     if (priv_->camera) {
         QObject::connect(priv_->camera, &QCamera::statusChanged, [this](QCamera::Status status) {
             if (status == QCamera::Status::ActiveStatus) {
-                QTimer* timer = new QTimer(this);
+                auto timer = new QTimer(this);
                 //TODO: capture rate from settings
                 timer->setInterval(1000);
                 QObject::connect(timer, &QTimer::timeout, [this, timer]() {

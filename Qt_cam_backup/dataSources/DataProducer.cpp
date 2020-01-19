@@ -58,7 +58,7 @@ void DataProducer::configure(const DataSources& sourceSettings)
 void DataProducer::onDataAvailable(const QByteArray& data)
 {
     Q_ASSERT(qobject_cast<AbstractDataSource*>(sender()));
-    emit dataAvailable(static_cast<AbstractDataSource*>(sender()), data);
+    emit dataAvailable(qobject_cast<AbstractDataSource*>(sender()), data);
 }
 
 void DataProducer::start()
