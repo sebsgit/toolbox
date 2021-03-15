@@ -4,6 +4,59 @@
 #include <QDir>
 #include <QDirIterator>
 
+class GCommandSplitter final
+{
+public:
+   explicit GCommandSplitter(const QString &input):
+      input_{input}
+   {
+
+   }
+
+   QStringList split() const
+   {
+      QStringList result;
+      QString current;
+      bool in_quotes{false};
+      for (int32_t i = 0; i < input_.count(); ++i)
+      {
+         const auto c{input_[i]};
+         if (c.isSpace())
+         {
+            if (in_quotes)
+            {
+               current += c;
+            }
+            else
+            {
+               if (!current.isEmpty())
+               {
+                  result.append(std::move(current));
+                  current = QString();
+               }
+            }
+         }
+         else if (c == '"')
+         {
+            in_quotes = !in_quotes;
+            current += c;
+         }
+         else
+         {
+            current += c;
+         }
+      }
+      if (!current.isEmpty())
+      {
+         result.append(std::move(current));
+      }
+      return result;
+   }
+
+private:
+   const QString input_;
+};
+
 GStdInCommandParser::GStdInCommandParser(GServer *server, QObject *parent) : QObject(parent), server_{server}
 {
 
@@ -13,7 +66,7 @@ void GStdInCommandParser::executeCommand(const QString &cmd)
 {
     if (cmd.startsWith("remote "))
     {
-        auto params{cmd.mid(7).split(' ')};
+        auto params{GCommandSplitter(cmd.mid(7)).split()};
         if (params.size() > 0) {
             const auto proc{params[0]};
             params.pop_front();
@@ -23,7 +76,7 @@ void GStdInCommandParser::executeCommand(const QString &cmd)
     }
     else if (cmd.startsWith("send "))
     {
-        auto params{cmd.mid(5).split(' ')};
+        auto params{GCommandSplitter(cmd.mid(5)).split()};
         for (auto path : params)
         {
             QFileInfo info{path.trimmed()};
