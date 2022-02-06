@@ -4,6 +4,6 @@ ctrl_interface=/var/run/wpa_supplicant
 
 network={
  scan_ssid=1
- ssid="${RPIZEROWEXTRAS_NET_SSID}"
- psk="${RPIZEROWEXTRAS_NET_PASSWD}"
+ ssid="{RPIZEROWEXTRAS_NET_SSID}"
+ psk="{RPIZEROWEXTRAS_NET_PASSWD}"
 }
