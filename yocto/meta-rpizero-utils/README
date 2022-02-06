@@ -1,0 +1,8 @@
+This README file contains information on the contents of the meta-rpizero-utils layer.
+
+Provides the "rpizero-extended-image" image for Raspberry Pi Zero W with:
+* enabled ssh via the 'ssh' file in the "/boot" partition
+* updated wpa_supplicant.conf file with a predefined SSID/password for the WiFi connection
+
+todo
+
