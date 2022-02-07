@@ -11,5 +11,6 @@ do_install:append() {
     rm -rf ${D}/etc/wpa_supplicant.conf
     sed -i 's/{RPIZEROWEXTRAS_NET_SSID}/${WIFI_SSID}/g' ${WORKDIR}/wpa_supplicant.conf.source
     sed -i 's/{RPIZEROWEXTRAS_NET_PASSWD}/${WIFI_PASSWD}/g' ${WORKDIR}/wpa_supplicant.conf.source
-    install -m 600 ${WORKDIR}/wpa_supplicant.conf.source ${D}/etc/wpa_supplicant.conf
+    install -m 644 ${WORKDIR}/wpa_supplicant.conf.source ${D}/etc/wpa_supplicant.conf
 }
+
