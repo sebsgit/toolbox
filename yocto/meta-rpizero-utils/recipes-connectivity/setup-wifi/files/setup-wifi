@@ -1,0 +1,12 @@
+#!/bin/sh
+
+rfkill unblock all
+ifconfig wlan0 {RPI_LOCAL_IP}
+wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf 2>&1 | tee -a /etc/log/msg.txt
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+echo "nameserver {ROUTER_IP}" >> /etc/resolv.conf
+/sbin/ifconfig wlan0 down
+/sbin/ifconfig wlan0 up
+route add default gw {ROUTER_IP}
+: exit 0 
+

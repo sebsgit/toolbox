@@ -1,8 +1,19 @@
 This README file contains information on the contents of the meta-rpizero-utils layer.
 
-Provides the "rpizero-extended-image" image for Raspberry Pi Zero W with:
+Provides the "rpizero-extended-image" image for Raspberry Pi Zero W with the following features:
 * enabled ssh via the 'ssh' file in the "/boot" partition
 * updated wpa_supplicant.conf file with a predefined SSID/password for the WiFi connection
+* setup-wifi script which enables the wlan0 interface and takes care of the board IP address
 
-todo
+Building this layer requires the user to create a "network_settings.inc" file in the "recipes-connectivity" folder.
+The file should define the following variables:
+
+WIFI_SSID = "YourNetworkName"
+WIFI_PASSWD = "passwd"
+ROUTER_IP = "192.168.0.1"
+RPI_LOCAL_IP = "192.168.0.99"
+
+The "ROUTER_IP" should be set to the IP address of the network gateway node. On linux this can be checked with "route -n" command.
+The "RPI_LOCAL_IP" should be set to the desired IP address of the raspberry pi device in the local network.
+The WIFI_SSID / WIFI_PASSWD should be set to allow the raspberry pi device to connect to the local wifi.
 
