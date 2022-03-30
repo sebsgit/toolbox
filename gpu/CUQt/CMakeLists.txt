@@ -19,12 +19,17 @@ set(CUQT_CUDA_SOURCES
     src/cuqtdevice.cpp
     src/cuqtdebugoperators.cpp
     src/cuqtstream.cpp
+    src/cuqtevent.cpp
+    src/cuqtmemory.cpp
 )
 
 set(CUQT_HEADERS
     include/cuqt.h
     include/cuqtdevice.h
-    include/cuqtstream.h)
+    include/cuqtstream.h
+    include/cuqtevent.h
+    include/cuqtmemory.h
+)
 
 add_library(CUQt SHARED
     ${CUQT_HEADERS}

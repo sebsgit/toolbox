@@ -35,6 +35,11 @@ void CUQtDevice::setId(const int32_t id) noexcept
     }
 }
 
+void CUQtDevice::synchronize()
+{
+    cudaDeviceSynchronize();
+}
+
 int32_t CUQtDevice::id() const noexcept
 {
     return priv_->dev_id;

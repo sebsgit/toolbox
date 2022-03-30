@@ -24,6 +24,7 @@ public:
 
 public slots:
     void setId(const int32_t id) noexcept;
+    void synchronize();
 
 private:
     class Priv;

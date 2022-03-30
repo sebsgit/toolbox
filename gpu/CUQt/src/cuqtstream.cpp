@@ -27,7 +27,7 @@ CUQtStream::CUQtStream(CreationFlags flags, QObject *parent)
                               static_cast<std::underlying_type<CreationFlags>::type>(flags));
     if (priv_->handle)
     {
-        cudaStreamAddCallback(priv_->handle, streamCompletedCallback, this, 0);
+    //TODO    cudaStreamAddCallback(priv_->handle, streamCompletedCallback, this, 0);
     }
 }
 
@@ -59,4 +59,9 @@ CUQtStream::CompletionStatus CUQtStream::status() const noexcept
 void CUQtStream::synchronize()
 {
     cudaStreamSynchronize(priv_->handle);
+}
+
+CUQtStream::operator cudaStream_t() const noexcept
+{
+    return priv_->handle;
 }

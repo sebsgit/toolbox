@@ -30,6 +30,8 @@ public:
 
     CompletionStatus status() const noexcept;
 
+    operator cudaStream_t() const noexcept;
+
 public slots:
     void synchronize();
 

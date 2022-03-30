@@ -12,5 +12,5 @@ void TestStream::defaultStreamStatus()
 {
     CUQtStream stream;
     QVERIFY(!CUQt::hasError());
-    QCOMPARE(stream.status(), CUQtStream::CompletionStatus::NotReady);
+    QCOMPARE(stream.status(), CUQtStream::CompletionStatus::Done);
 }
