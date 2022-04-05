@@ -63,3 +63,10 @@ QByteArray CUQtDevice::pciBusId() const noexcept
     return result.trimmed();
 }
 
+CUQt::Version CUQtDevice::computeCapability() const noexcept
+{
+    CUQt::Version result;
+    cudaDeviceGetAttribute(&result.major, cudaDevAttrComputeCapabilityMajor, priv_->dev_id);
+    cudaDeviceGetAttribute(&result.minor, cudaDevAttrComputeCapabilityMinor, priv_->dev_id);
+    return result;
+}

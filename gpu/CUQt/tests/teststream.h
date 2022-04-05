@@ -1,8 +1,7 @@
 #ifndef TESTSTREAM_H
 #define TESTSTREAM_H
 
-#include <QObject>
-#include <qtestcase.h>
+#include "testbase.h"
 
 class TestStream : public QObject
 {

@@ -1,8 +1,7 @@
 #ifndef TESTDEVICE_H
 #define TESTDEVICE_H
 
-#include <QObject>
-#include <qtestcase.h>
+#include "testbase.h"
 
 class TestDevice : public QObject
 {

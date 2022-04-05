@@ -1,6 +1,6 @@
-#include "testdevice.h"
 #include <cuqtdevice.h>
 #include <QDebug>
+#include "testdevice.h"
 
 TestDevice::TestDevice(QObject *parent)
     : QObject{parent}
@@ -30,6 +30,7 @@ void TestDevice::defaultDeviceIsValid()
     QVERIFY(!device.pciBusId().isEmpty());
 
     qDebug() << "Running tests on" << device.properties().name;
+    qDebug() << "Compute caps:" << device.computeCapability();
 }
 
 void TestDevice::setInvalidId()

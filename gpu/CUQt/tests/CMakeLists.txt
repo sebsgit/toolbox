@@ -15,7 +15,7 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Test)
 enable_testing()
 
 set(CUQT_CUDA_TEST_SOURCES testdevicememory.cpp)
-set(TEST_SOURCES testdevice.cpp testdevice.h teststream.h teststream.cpp testdevicememory.h ${CUQT_CUDA_TEST_SOURCES})
+set(TEST_SOURCES testbase.h testdevice.cpp testdevice.h teststream.h teststream.cpp testdevicememory.h ${CUQT_CUDA_TEST_SOURCES})
 
 set_source_files_properties(${CUQT_CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
 

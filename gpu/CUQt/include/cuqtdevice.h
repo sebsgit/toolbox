@@ -22,6 +22,8 @@ public:
     cudaDeviceProp properties() const noexcept;
     QByteArray pciBusId() const noexcept;
 
+    CUQt::Version computeCapability() const noexcept;
+
 public slots:
     void setId(const int32_t id) noexcept;
     void synchronize();

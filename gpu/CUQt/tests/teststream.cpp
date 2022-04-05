@@ -1,6 +1,6 @@
-#include "teststream.h"
 #include <cuqtdevice.h>
 #include <cuqtstream.h>
+#include "teststream.h"
 
 TestStream::TestStream(QObject *parent)
     : QObject{parent}

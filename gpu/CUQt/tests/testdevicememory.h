@@ -1,8 +1,7 @@
 #ifndef TESTDEVICEMEMORY_H
 #define TESTDEVICEMEMORY_H
 
-#include <QObject>
-#include <qtestcase.h>
+#include "testbase.h"
 
 class TestDeviceMemory : public QObject
 {
@@ -11,7 +10,8 @@ public:
     explicit TestDeviceMemory(QObject *parent = nullptr);
 
 private slots:
-    void uploadAndDownload();
+    void uploadAndDownload1D();
+    void uploadAndDownload2D();
 };
 
 #endif // TESTDEVICEMEMORY_H
