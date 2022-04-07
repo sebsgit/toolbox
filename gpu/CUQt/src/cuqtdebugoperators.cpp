@@ -119,6 +119,31 @@ QDebug operator<<(QDebug stream, cudaDeviceAttr value)
     return stream;
 }
 
+QDebug operator<<(QDebug stream, cudaResourceType res_type)
+{
+    switch (res_type)
+    {
+        MAKE_CASE(cudaResourceTypeArray);
+        MAKE_CASE(cudaResourceTypeMipmappedArray);
+        MAKE_CASE(cudaResourceTypePitch2D);
+        MAKE_CASE(cudaResourceTypeLinear);
+    }
+    return stream;
+}
+
+QDebug operator<<(QDebug stream, cudaChannelFormatKind channel_format)
+{
+    switch (channel_format)
+    {
+        MAKE_CASE(cudaChannelFormatKindSigned);
+        MAKE_CASE(cudaChannelFormatKindUnsigned);
+        MAKE_CASE(cudaChannelFormatKindFloat);
+        MAKE_CASE(cudaChannelFormatKindNone);
+        MAKE_CASE(cudaChannelFormatKindNV12);
+    }
+    return stream;
+}
+
 QDebug operator<<(QDebug stream, cudaError value)
 {
     return stream << cudaGetErrorString(value);

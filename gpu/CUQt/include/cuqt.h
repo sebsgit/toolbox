@@ -15,7 +15,16 @@ class QDebug;
 
 extern CUQT_DLL_SPECS QDebug operator<<(QDebug, cudaDeviceAttr);
 extern CUQT_DLL_SPECS QDebug operator<<(QDebug, cudaError);
+extern CUQT_DLL_SPECS QDebug operator<<(QDebug, cudaResourceType);
+extern CUQT_DLL_SPECS QDebug operator<<(QDebug, cudaChannelFormatKind);
 extern CUQT_DLL_SPECS QDebug operator<<(QDebug, const dim3 &);
+
+template <typename T>
+struct CUQT_DLL_SPECS CUQtResult final
+{
+    T value{};
+    cudaError status{cudaErrorInvalidValue};
+};
 
 namespace CUQt {
 

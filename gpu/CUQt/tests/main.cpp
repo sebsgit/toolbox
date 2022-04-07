@@ -1,6 +1,7 @@
 #include "testdevice.h"
 #include "teststream.h"
 #include "testdevicememory.h"
+#include "testtextures.h"
 
 #include <QTest>
 
@@ -31,5 +32,5 @@ int runTests(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-    return runTests<TestDevice, TestStream, TestDeviceMemory>(argc, argv);
+    return runTests<TestDevice, TestStream, TestDeviceMemory, TestTextures>(argc, argv);
 }
