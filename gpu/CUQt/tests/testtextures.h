@@ -11,6 +11,7 @@ public:
 
 private slots:
     void uploadQImage();
+    void readWriteTextureMemory();
 
 };
 

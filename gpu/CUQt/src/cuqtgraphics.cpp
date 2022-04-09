@@ -87,6 +87,16 @@ cudaTextureObject_t CUQtTexture::handle() const noexcept
     return priv_->handle;
 }
 
+void *CUQtTexture::devicePointer() const noexcept
+{
+    return priv_->memory ? priv_->memory->devicePointer() : nullptr;
+}
+
+size_t CUQtTexture::pitch() const noexcept
+{
+    return priv_->memory ? priv_->memory->pitch() : 0;
+}
+
 cudaChannelFormatDesc CUQtTexture::formatDescriptor() const noexcept
 {
     return priv_->format_desc;

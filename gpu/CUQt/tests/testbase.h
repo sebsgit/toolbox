@@ -7,9 +7,15 @@
 #include <cuqt.h>
 
 #ifndef __CUDACC__
+/// below entities are defined for autocomplete hints
+
 #define blockIdx dim3{}
 #define blockDim dim3{}
 #define threadIdx dim3{}
+
+template <typename T>
+T tex2D(cudaTextureObject_t, int, int) { return {}; }
+
 #endif
 
 //TODO move to .cpp, provide implementations for other enums and structs

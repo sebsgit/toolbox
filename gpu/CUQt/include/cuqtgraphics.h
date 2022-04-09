@@ -33,6 +33,8 @@ public:
     bool isValid() const noexcept;
 
     cudaTextureObject_t handle() const noexcept;
+    void *devicePointer() const noexcept;
+    size_t pitch() const noexcept;
     cudaChannelFormatDesc formatDescriptor() const noexcept;
 
     cudaError preallocate(size_t width, size_t height, QImage::Format format, cudaStream_t stream = 0);
