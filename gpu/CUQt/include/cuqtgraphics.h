@@ -11,18 +11,11 @@ namespace CUQt
 CUQT_DLL_SPECS cudaChannelFormatDesc toCudaChannelFormat(QImage::Format image_format) noexcept;
 } // namespace CUQt
 
-class CUQT_DLL_SPECS CUQtTextureSampler final
-{
-public:
-    CUQtTextureSampler();
-    ~CUQtTextureSampler();
-
-
-};
-
 class CUQT_DLL_SPECS CUQtTexture final
 {
 public:
+    static bool isFormatSupported(const QImage::Format format) noexcept;
+
     CUQtTexture();
     CUQtTexture(const QImage &image, cudaStream_t stream = 0);
     ~CUQtTexture();
@@ -41,9 +34,8 @@ public:
 
     cudaError upload(const QImage &image, cudaStream_t stream = 0);
 
-    //TODO add stream parameters to download
-    CUQtResult<QImage> download() const;
-    cudaError download(QImage &target) const;
+    CUQtResult<QImage> download(cudaStream_t stream = 0) const;
+    cudaError download(QImage &target, cudaStream_t stream = 0) const;
 
 private:
     class Priv;

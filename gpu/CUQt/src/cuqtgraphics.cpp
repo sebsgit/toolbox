@@ -37,6 +37,11 @@ public:
     QScopedPointer<CUQtDeviceMemoryBlock2D<uint8_t>> memory;
 };
 
+bool CUQtTexture::isFormatSupported(const QImage::Format format) noexcept
+{
+    return CUQt::toCudaChannelFormat(format).f != cudaChannelFormatKindNone;
+}
+
 CUQtTexture::CUQtTexture():
       priv_{new Priv()}
 {
@@ -205,18 +210,18 @@ cudaError CUQtTexture::upload(const QImage &image, cudaStream_t stream)
     return cudaSuccess;
 }
 
-CUQtResult<QImage> CUQtTexture::download() const
+CUQtResult<QImage> CUQtTexture::download(cudaStream_t stream) const
 {
     if (!priv_->memory || priv_->logical_width == 0 || priv_->allocated_width == 0 || priv_->allocated_format == QImage::Format_Invalid)
     {
         return {QImage(), cudaErrorInvalidValue};
     }
     QImage result{priv_->logical_width, priv_->allocated_height, priv_->allocated_format};
-    const auto status{download(result)};
+    const auto status{download(result, stream)};
     return {result, status};
 }
 
-cudaError CUQtTexture::download(QImage &target) const
+cudaError CUQtTexture::download(QImage &target, cudaStream_t stream) const
 {
     if (!priv_->memory)
     {

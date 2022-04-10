@@ -3,6 +3,8 @@
 
 #include <QObject>
 #include <QMetaEnum>
+#include <QDebug>
+#include <QElapsedTimer>
 #include "cuqt.h"
 
 namespace CUQt
@@ -83,6 +85,26 @@ public:
     CUQt::MemcpyResult download(T* destination, size_t n_elem, size_t offset_in_source = 0) noexcept
     {
         const auto err{cudaMemcpy(destination, ptr_ + offset_in_source, n_elem * sizeof(T), cudaMemcpyDeviceToHost)};
+        if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
+        {
+            return static_cast<CUQt::MemcpyResult>(err);
+        }
+        return CUQt::MemcpyResult::MemcpyUnknownError;
+    }
+
+    CUQt::MemcpyResult upload(const T* source, size_t n_elem, cudaStream_t stream, size_t offset_in_target = 0) noexcept
+    {
+        const auto err{cudaMemcpyAsync(ptr_ + offset_in_target, source, n_elem * sizeof(T), cudaMemcpyHostToDevice, stream)};
+        if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
+        {
+            return static_cast<CUQt::MemcpyResult>(err);
+        }
+        return CUQt::MemcpyResult::MemcpyUnknownError;
+    }
+
+    CUQt::MemcpyResult download(T* destination, size_t n_elem, cudaStream_t stream, size_t offset_in_source = 0) noexcept
+    {
+        const auto err{cudaMemcpyAsync(destination, ptr_ + offset_in_source, n_elem * sizeof(T), cudaMemcpyDeviceToHost, stream)};
         if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
         {
             return static_cast<CUQt::MemcpyResult>(err);
@@ -174,6 +196,26 @@ public:
     CUQt::MemcpyResult download(T* target, size_t target_pitch_in_bytes, size_t width, size_t height) noexcept
     {
         const auto err{cudaMemcpy2D(target, target_pitch_in_bytes, ptr_, pitch_, width * sizeof(T), height, cudaMemcpyDeviceToHost)};
+        if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
+        {
+            return static_cast<CUQt::MemcpyResult>(err);
+        }
+        return CUQt::MemcpyResult::MemcpyUnknownError;
+    }
+
+    CUQt::MemcpyResult upload(const T* source, size_t source_pitch_in_bytes, size_t width, size_t height, cudaStream_t stream) noexcept
+    {
+        const auto err{cudaMemcpy2DAsync(ptr_, pitch_, source, source_pitch_in_bytes, width * sizeof(T), height, cudaMemcpyHostToDevice, stream)};
+        if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
+        {
+            return static_cast<CUQt::MemcpyResult>(err);
+        }
+        return CUQt::MemcpyResult::MemcpyUnknownError;
+    }
+
+    CUQt::MemcpyResult download(T* target, size_t target_pitch_in_bytes, size_t width, size_t height, cudaStream_t stream) noexcept
+    {
+        const auto err{cudaMemcpy2DAsync(target, target_pitch_in_bytes, ptr_, pitch_, width * sizeof(T), height, cudaMemcpyDeviceToHost, stream)};
         if (QMetaEnum::fromType<CUQt::MemcpyResult>().valueToKey(err))
         {
             return static_cast<CUQt::MemcpyResult>(err);

@@ -11,6 +11,7 @@ public:
 
 private slots:
     void defaultStreamStatus();
+    void recordEventsInStream();
 };
 
 #endif // TESTSTREAM_H

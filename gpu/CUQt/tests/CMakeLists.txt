@@ -14,8 +14,8 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Core Gui Test)
 
 enable_testing()
 
-set(CUQT_CUDA_TEST_SOURCES testdevicememory.cpp testtextures.cpp)
-set(TEST_SOURCES testbase.h testdevice.cpp testdevice.h teststream.h teststream.cpp testdevicememory.h testtextures.h ${CUQT_CUDA_TEST_SOURCES})
+set(CUQT_CUDA_TEST_SOURCES testdevicememory.cpp testtextures.cpp teststream.cpp)
+set(TEST_SOURCES testbase.h testdevice.cpp testdevice.h teststream.h testdevicememory.h testtextures.h ${CUQT_CUDA_TEST_SOURCES})
 
 set_source_files_properties(${CUQT_CUDA_TEST_SOURCES} PROPERTIES LANGUAGE CUDA)
 
