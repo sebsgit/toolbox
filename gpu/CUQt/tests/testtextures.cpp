@@ -10,7 +10,7 @@ static QImage generateTestImage(int w, int h)
     {
         for (auto x = 0; x < test_image.width(); ++x)
         {
-            test_image.setPixelColor(x, y, QColor((x * 10) % 255, (y * 10) % 255, ((x + y) * 5) % 255, 255));
+            test_image.setPixelColor(x, y, QColor((x * 10) % 255, (y * 5) % 255, ((x + y) * 6) % 255, 255));
         }
     }
 
@@ -60,11 +60,10 @@ void TestTextures::readWriteTextureMemory()
     QVERIFY(texture.isValid());
 
     CUQtTexture output_texture;
-    status = output_texture.upload(output_image);
+    status = output_texture.preallocate(test_image.width(), test_image.height(), test_image.format());
     QCOMPARE(status, cudaSuccess);
     QVERIFY(output_texture.isValid());
     QVERIFY(output_texture.devicePointer() != nullptr);
-    QVERIFY(output_texture.pitch() >= output_image.width() * 4);
 
     const dim3 grid_size{1};
     const dim3 block_size{static_cast<uint32_t>(test_image.width()), static_cast<uint32_t>(test_image.height()), 1};

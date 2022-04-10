@@ -49,3 +49,13 @@ void discardLastError() noexcept
 }
 
 } // namespace CUQt
+
+bool operator==(const cudaChannelFormatDesc &f1, const cudaChannelFormatDesc &f2) noexcept
+{
+    return f1.f == f2.f && f1.w == f2.w && f1.x == f2.x && f1.y == f2.y && f1.z == f2.z;
+}
+
+bool operator!=(const cudaChannelFormatDesc &f1, const cudaChannelFormatDesc &f2) noexcept
+{
+    return !(f1 == f2);
+}

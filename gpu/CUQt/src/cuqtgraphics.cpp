@@ -30,9 +30,9 @@ public:
     cudaTextureObject_t handle{0};
     cudaChannelFormatDesc format_desc{};
     cudaTextureDesc texture_desc{};
-    int allocated_width{0};
-    int allocated_height{0};
-    int logical_width{0};
+    int32_t allocated_width{0};
+    int32_t allocated_height{0};
+    int32_t logical_width{0};
     QImage::Format allocated_format{QImage::Format_Invalid};
     QScopedPointer<CUQtDeviceMemoryBlock2D<uint8_t>> memory;
 };
@@ -104,7 +104,83 @@ cudaChannelFormatDesc CUQtTexture::formatDescriptor() const noexcept
 
 cudaError CUQtTexture::preallocate(size_t width, size_t height, QImage::Format format, cudaStream_t stream)
 {
-    return cudaErrorNotYetImplemented;
+    cudaError result{cudaSuccess};
+    const auto format_desc{CUQt::toCudaChannelFormat(format)};
+    if (format_desc.f != cudaChannelFormatKindNone)
+    {
+        const auto bits_per_pixel{format_desc.w + format_desc.x + format_desc.y + format_desc.z};
+        const auto width_in_bytes{(width * bits_per_pixel) / 8};
+        const bool allocate_memory{width_in_bytes != priv_->allocated_width || height != priv_->allocated_height};
+        bool allocate_texture{!isValid() || priv_->format_desc != format_desc};
+        if (allocate_memory || allocate_texture)
+        {
+            QScopedPointer<Priv> new_priv{new Priv()};
+            new_priv->format_desc = priv_->format_desc;
+            new_priv->texture_desc = priv_->texture_desc;
+            new_priv->allocated_height = priv_->allocated_height;
+            new_priv->allocated_width = priv_->allocated_width;
+            new_priv->logical_width = priv_->logical_width;
+            new_priv->allocated_format = priv_->allocated_format;
+
+            if (allocate_memory)
+            {
+                new_priv->memory.reset(new CUQtDeviceMemoryBlock2D<uint8_t>(width_in_bytes, height));
+                if (new_priv->memory->isValid())
+                {
+                    new_priv->logical_width = static_cast<int32_t>(width);
+                    new_priv->allocated_height = static_cast<int32_t>(height);
+                    new_priv->allocated_width = static_cast<int32_t>(width_in_bytes);
+                    new_priv->format_desc = format_desc;
+                    new_priv->allocated_format = format;
+                    allocate_texture = true;
+                }
+                else
+                {
+                    result = cudaErrorMemoryAllocation;
+                    allocate_texture = false;
+                }
+            }
+
+            if (allocate_texture)
+            {
+                const auto device_memory_ptr{new_priv->memory ? new_priv->memory->devicePointer() : priv_->memory->devicePointer()};
+                const auto memory_pitch{new_priv->memory ? new_priv->memory->pitch() : priv_->memory->pitch()};
+
+                cudaResourceDesc resource_desc{};
+                resource_desc.resType = cudaResourceTypePitch2D;
+                resource_desc.res.pitch2D.desc = new_priv->format_desc;
+                resource_desc.res.pitch2D.devPtr = device_memory_ptr;
+                resource_desc.res.pitch2D.height = new_priv->allocated_height;
+                resource_desc.res.pitch2D.pitchInBytes = memory_pitch;
+                resource_desc.res.pitch2D.width = new_priv->logical_width;
+                result = cudaCreateTextureObject(&new_priv->handle, &resource_desc, &priv_->texture_desc, nullptr);
+            }
+
+            if (result == cudaSuccess)
+            {
+                if (!new_priv->memory)
+                {
+                    new_priv->memory.swap(priv_->memory);
+                }
+                if (!new_priv->handle)
+                {
+                    new_priv->handle = priv_->handle;
+                    priv_->handle = cudaTextureObject_t{};
+                }
+                if (priv_->handle)
+                {
+                    cudaDestroyTextureObject(priv_->handle);
+                }
+                priv_.swap(new_priv);
+            }
+        }
+    }
+    else
+    {
+        result = cudaErrorInvalidValue;
+    }
+
+    return result;
 }
 
 cudaError CUQtTexture::upload(const QImage &image, cudaStream_t stream)
@@ -114,52 +190,16 @@ cudaError CUQtTexture::upload(const QImage &image, cudaStream_t stream)
         return cudaErrorInvalidHostPointer;
     }
 
-    const auto format_desc{CUQt::toCudaChannelFormat(image.format())};
-    if (format_desc.f == cudaChannelFormatKindNone)
+    const auto status{preallocate(image.width(), image.height(), image.format(), stream)};
+    if (status != cudaSuccess)
     {
-        return cudaErrorInvalidValue;
+        return status;
     }
 
-    const auto width{image.width()};
-    const auto height{image.height()};
-    const auto bits_per_pixel{image.depth()};
-    const auto width_in_bytes{(width * bits_per_pixel) / 8};
-
-    //TODO add operator!= for cudaChannelFormatDesc
-    //TODO change impl to modify priv_ only on success
-    bool allocate_texture{!isValid() || std::memcmp(&priv_->format_desc, &format_desc, sizeof(format_desc))};
-    if (width_in_bytes != priv_->allocated_width || height != priv_->allocated_height)
-    {
-        priv_->memory.reset(new CUQtDeviceMemoryBlock2D<uint8_t>(width_in_bytes, height));
-        priv_->allocated_height = height;
-        priv_->allocated_width = width_in_bytes;
-        allocate_texture = true;
-    }
-
-    priv_->logical_width = width;
-    this->priv_->format_desc = format_desc;
-    const auto upload_result{this->priv_->memory->upload(image.bits(), image.bytesPerLine(), width_in_bytes, image.height())};
+    const auto upload_result{this->priv_->memory->upload(image.bits(), image.bytesPerLine(), priv_->allocated_width, image.height())};
     if (upload_result != CUQt::MemcpyResult::MemcpySuccess)
     {
         return static_cast<cudaError>(upload_result);
-    }
-
-    priv_->allocated_format = image.format();
-    if (allocate_texture)
-    {
-        if (priv_->handle)
-        {
-            cudaDestroyTextureObject(priv_->handle);
-        }
-
-        cudaResourceDesc resource_desc{};
-        resource_desc.resType = cudaResourceTypePitch2D;
-        resource_desc.res.pitch2D.desc = priv_->format_desc;
-        resource_desc.res.pitch2D.devPtr = priv_->memory->devicePointer();
-        resource_desc.res.pitch2D.height = priv_->allocated_height;
-        resource_desc.res.pitch2D.pitchInBytes = priv_->memory->pitch();
-        resource_desc.res.pitch2D.width = priv_->logical_width;
-        return cudaCreateTextureObject(&priv_->handle, &resource_desc, &priv_->texture_desc, nullptr);
     }
 
     return cudaSuccess;
@@ -167,7 +207,7 @@ cudaError CUQtTexture::upload(const QImage &image, cudaStream_t stream)
 
 CUQtResult<QImage> CUQtTexture::download() const
 {
-    if (!isValid())
+    if (!priv_->memory || priv_->logical_width == 0 || priv_->allocated_width == 0 || priv_->allocated_format == QImage::Format_Invalid)
     {
         return {QImage(), cudaErrorInvalidValue};
     }
@@ -178,11 +218,11 @@ CUQtResult<QImage> CUQtTexture::download() const
 
 cudaError CUQtTexture::download(QImage &target) const
 {
-    if (!isValid())
+    if (!priv_->memory)
     {
         return cudaErrorInvalidValue;
     }
-    if (target.height() != priv_->allocated_height || target.width() != priv_->logical_width)
+    if (target.height() != priv_->allocated_height || target.width() != priv_->logical_width || target.format() != priv_->allocated_format)
     {
         return cudaErrorInvalidConfiguration;
     }

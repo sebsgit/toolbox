@@ -44,6 +44,9 @@ CUQT_DLL_SPECS QString lastErrorDescription() noexcept;
 CUQT_DLL_SPECS void discardLastError() noexcept;
 } // namespace CUQt
 
-CUQT_DLL_SPECS QDebug operator<<(QDebug, const CUQt::Version &);
+extern CUQT_DLL_SPECS QDebug operator<<(QDebug, const CUQt::Version &);
+
+extern CUQT_DLL_SPECS bool operator==(const cudaChannelFormatDesc &f1, const cudaChannelFormatDesc &f2) noexcept;
+extern CUQT_DLL_SPECS bool operator!=(const cudaChannelFormatDesc &f1, const cudaChannelFormatDesc &f2) noexcept;
 
 #endif // CUQT_H

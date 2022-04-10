@@ -146,7 +146,7 @@ QDebug operator<<(QDebug stream, cudaChannelFormatKind channel_format)
 
 QDebug operator<<(QDebug stream, cudaError value)
 {
-    return stream << cudaGetErrorString(value);
+    return stream << cudaGetErrorName(value) << ":" << cudaGetErrorString(value);
 }
 
 QDebug operator<<(QDebug stream, const dim3 &value)
