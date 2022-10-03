@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QScopedPointer>
+#include <functional>
 
 #include "cuqt.h"
 
@@ -32,11 +33,10 @@ public:
 
     operator cudaStream_t() const noexcept;
 
+    cudaError enqueueFunction(const std::function<void()> &fn);
+
 public slots:
     void synchronize();
-
-signals:
-    void completed();
 
 private:
     class Priv;

@@ -2,20 +2,34 @@
 
 #include <type_traits>
 #include <cuda_runtime.h>
+#include <mutex>
 #include <QTimer>
 
 #include <QDebug>
+
+namespace
+{
+struct HostCallbackData
+{
+    std::function<void()> cb;
+};
+} // namespace
 
 class CUQtStream::Priv final
 {
 public:
     cudaStream_t handle{nullptr};
+    std::mutex mutex;
+    std::vector<std::unique_ptr<HostCallbackData>> hostCallbacks;
 };
 
-static void streamCompletedCallback(cudaStream_t stream,  cudaError_t status, void* userData)
+static void CUDART_CB hostCallback(void *userData)
 {
-    CUQtStream *unwrapped{reinterpret_cast<CUQtStream*>(userData)};
-    QTimer::singleShot(0, unwrapped, &CUQtStream::completed);
+    auto cbData{static_cast<HostCallbackData*>(userData)};
+    if (cbData && cbData->cb)
+    {
+        cbData->cb();
+    }
 }
 
 CUQtStream::CUQtStream(CreationFlags flags, QObject *parent)
@@ -25,10 +39,6 @@ CUQtStream::CUQtStream(CreationFlags flags, QObject *parent)
     CUQt::discardLastError();
     cudaStreamCreateWithFlags(&priv_->handle,
                               static_cast<std::underlying_type<CreationFlags>::type>(flags));
-    if (priv_->handle)
-    {
-    //TODO    cudaStreamAddCallback(priv_->handle, streamCompletedCallback, this, 0);
-    }
 }
 
 CUQtStream::~CUQtStream()
@@ -64,4 +74,35 @@ void CUQtStream::synchronize()
 CUQtStream::operator cudaStream_t() const noexcept
 {
     return priv_->handle;
+}
+
+cudaError CUQtStream::enqueueFunction(const std::function<void()> &fn)
+{
+    if (!fn)
+    {
+        return cudaErrorInvalidValue;
+    }
+
+    auto cbData{std::make_unique<HostCallbackData>()};
+    cbData->cb = [this, fn, ptr = cbData.get()]()
+    {
+        fn();
+        std::lock_guard<std::mutex> lock{priv_->mutex};
+        for (auto it = priv_->hostCallbacks.begin(); it != priv_->hostCallbacks.end(); ++it)
+        {
+            if (it->get() == ptr)
+            {
+                priv_->hostCallbacks.erase(it);
+                break;
+            }
+        }
+    };
+
+    auto returnCode{cudaLaunchHostFunc(priv_->handle, hostCallback, cbData.get())};
+    if (returnCode == cudaSuccess)
+    {
+        std::lock_guard<std::mutex> lock{priv_->mutex};
+        priv_->hostCallbacks.push_back(std::move(cbData));
+    }
+    return returnCode;
 }

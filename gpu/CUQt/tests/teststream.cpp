@@ -46,6 +46,12 @@ void TestStream::recordEventsInStream()
     CUQtEvent kernel_done_event;
     CUQtEvent memcpy_done_event;
 
+    bool memcpy_is_done{false};
+    auto on_memcpy_done = [&memcpy_is_done]()
+    {
+        memcpy_is_done = true;
+    };
+
     auto event_status{start_event.record(stream)};
     QCOMPARE(event_status, CUQtEvent::RecordStatus::RecordStatusSuccess);
 
@@ -57,9 +63,14 @@ void TestStream::recordEventsInStream()
     QCOMPARE(event_status, CUQtEvent::RecordStatus::RecordStatusSuccess);
 
     data.download(result_data.data(), number_of_elements, stream);
+
+    QCOMPARE(stream.enqueueFunction(on_memcpy_done), cudaSuccess);
     event_status = memcpy_done_event.record(stream);
     QCOMPARE(event_status, CUQtEvent::RecordStatus::RecordStatusSuccess);
+
+    QCOMPARE(memcpy_is_done, false);
     memcpy_done_event.synchronize();
+    QCOMPARE(memcpy_is_done, true);
 
     const auto host_ms_after_sync{timer.elapsed()};
 
