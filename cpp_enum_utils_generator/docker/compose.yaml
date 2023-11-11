@@ -1,0 +1,9 @@
+services:
+    generate_enum_utils:
+        user: dev
+        build: .
+        volumes: 
+            - ../input:/tmp/input/:ro
+            - ../output:/tmp/output/:wo
+            - ../scripts:/home/dev/scripts:ro
+        entrypoint: /home/dev/scripts/call_generate_enum_utils.sh
