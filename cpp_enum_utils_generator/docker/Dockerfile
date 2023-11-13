@@ -14,8 +14,6 @@ RUN apt update && apt upgrade -y \
  && apt install --no-install-recommends -y python3 g++ \
  && rm -rf /var/lib/apt/lists/*
 
-RUN useradd -ms /bin/bash dev
-USER dev
-WORKDIR /home/dev/
+WORKDIR /opt/
 
-COPY --from=builder /tmp/castxml/ /home/dev/castxml/
+COPY --from=builder /tmp/castxml/ /opt/castxml/

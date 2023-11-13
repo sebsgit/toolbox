@@ -1,9 +1,9 @@
+version: "3"
 services:
     generate_enum_utils:
-        user: dev
         build: .
         volumes: 
-            - ../input:/tmp/input/:ro
-            - ../output:/tmp/output/:wo
-            - ../scripts:/home/dev/scripts:ro
-        entrypoint: /home/dev/scripts/call_generate_enum_utils.sh
+            - ../input:/var/opt/castxml/input/:ro
+            - ../output:/var/opt/castxml/output/:wo
+            - ../scripts:/var/opt/castxml/scripts:ro
+        entrypoint: /var/opt/castxml/scripts/call_generate_enum_utils.sh
