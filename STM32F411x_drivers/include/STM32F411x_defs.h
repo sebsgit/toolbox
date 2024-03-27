@@ -36,6 +36,7 @@
 #define STM32F411X_DEFS_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 #define ST_SRAM_BASE_ADDRESS	0x20000000U
 #define ST_SRAM_SIZE			(128U * 1024U)
@@ -132,9 +133,20 @@
 #define ST_RCC_BASE_ADDRESS 0x40023800U
 
 ///
+/// APB1 bus peripherals
+///
+
+#define ST_SPI2_BASE_ADDRESS 0x40003800U
+#define ST_SPI3_BASE_ADDRESS 0x40003C00U
+#define ST_I2C1_BASE_ADDRESS 0x40005400U
+
+///
 /// APB2 bus peripherals
 ///
 
+#define ST_SPI5_BASE_ADDRESS 0x40015000U
+#define ST_SPI4_BASE_ADDRESS 0x40013400U
+#define ST_SPI1_BASE_ADDRESS 0x40013000U
 #define ST_USART1_BASE_ADDRESS 0x40011000U
 #define ST_USART6_BASE_ADDRESS 0x40011400U
 
@@ -155,12 +167,6 @@
 // system configuration register
 #define ST_SYSCFG_BASE_ADDRESS 0x40013800U
 
-///
-/// APB1 bus peripherals
-///
-
-#define ST_I2C1_BASE_ADDRESS 0x40005400U
-
 typedef struct
 {
 	volatile uint32_t MODE;			// port mode register
@@ -174,6 +180,28 @@ typedef struct
 	volatile uint32_t AFRL;			// alternate funtion low register
 	volatile uint32_t AFRH;			// alternate function high register
 } ST_GPIO_reg_t;
+
+typedef struct
+{
+	volatile uint32_t CR1;
+	uint32_t RESERVED0;
+	volatile uint32_t SR;
+	volatile uint32_t DR;
+	volatile uint32_t CRCPR;
+	volatile uint32_t RXCRCR;
+	volatile uint32_t TXCRCR;
+	volatile uint32_t I2SCFGR;
+	volatile uint32_t I2SPR;
+} ST_SPI_reg_t;
+
+_Static_assert(offsetof(ST_SPI_reg_t, CR1) == 0x00, "");
+_Static_assert(offsetof(ST_SPI_reg_t, SR) == 0x08, "");
+_Static_assert(offsetof(ST_SPI_reg_t, DR) == 0x0C, "");
+_Static_assert(offsetof(ST_SPI_reg_t, CRCPR) == 0x10, "");
+_Static_assert(offsetof(ST_SPI_reg_t, RXCRCR) == 0x14, "");
+_Static_assert(offsetof(ST_SPI_reg_t, TXCRCR) == 0x18, "");
+_Static_assert(offsetof(ST_SPI_reg_t, I2SCFGR) == 0x1C, "");
+_Static_assert(offsetof(ST_SPI_reg_t, I2SPR) == 0x20, "");
 
 typedef struct
 {
@@ -215,6 +243,9 @@ typedef struct
 	volatile uint32_t DCKCFG;		// dedicated clocks configuration
 } ST_RCC_reg_t;
 
+_Static_assert (offsetof(ST_RCC_reg_t, CC) == 0x0, "");
+_Static_assert (offsetof(ST_RCC_reg_t, DCKCFG) == 0x8C, "");
+
 typedef struct
 {
 	volatile uint32_t IMR;		// interrupt mask register
@@ -240,6 +271,11 @@ typedef struct
 #define ST_GPIOD 	( (ST_GPIO_reg_t*)(ST_GPIO_D_BASE_ADDRESS) )
 #define ST_GPIOE 	( (ST_GPIO_reg_t*)(ST_GPIO_E_BASE_ADDRESS) )
 #define ST_GPIOH 	( (ST_GPIO_reg_t*)(ST_GPIO_H_BASE_ADDRESS) )
+#define ST_SPI1		( (ST_SPI_reg_t*)(ST_SPI1_BASE_ADDRESS) )
+#define ST_SPI2		( (ST_SPI_reg_t*)(ST_SPI2_BASE_ADDRESS) )
+#define ST_SPI3		( (ST_SPI_reg_t*)(ST_SPI3_BASE_ADDRESS) )
+#define ST_SPI4		( (ST_SPI_reg_t*)(ST_SPI4_BASE_ADDRESS) )
+#define ST_SPI5		( (ST_SPI_reg_t*)(ST_SPI5_BASE_ADDRESS) )
 #define ST_RCC 		( (ST_RCC_reg_t*)(ST_RCC_BASE_ADDRESS) )
 #define ST_EXTI 	( (ST_EXTI_reg_t*)(ST_EXTI_BASE_ADDRESS) )
 #define ST_SYSCFG   ( (ST_SYSCFG_reg_t*)(ST_SYSCFG_BASE_ADDRESS) )
@@ -260,6 +296,20 @@ typedef struct
 #define ST_GPIOD_CLCK_DI() ( ST_RCC->AHB1EN &= ~(1 << 3) )
 #define ST_GPIOE_CLCK_DI() ( ST_RCC->AHB1EN &= ~(1 << 4) )
 #define ST_GPIOH_CLCK_DI() ( ST_RCC->AHB1EN &= ~(1 << 7) )
+
+//
+// SPI clock API
+//
+#define ST_SPI1_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 12) )
+#define ST_SPI1_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 12) )
+#define ST_SPI2_CLOCK_EN() ( ST_RCC->APB1EN |= (1 << 14) )
+#define ST_SPI2_CLOCK_DI() ( ST_RCC->APB1EN &= ~(1 << 14) )
+#define ST_SPI3_CLOCK_EN() ( ST_RCC->APB1EN |= (1 << 15) )
+#define ST_SPI3_CLOCK_DI() ( ST_RCC->APB1EN &= ~(1 << 15) )
+#define ST_SPI4_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 13) )
+#define ST_SPI4_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 13) )
+#define ST_SPI5_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 20) )
+#define ST_SPI5_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 20) )
 
 //
 // I2C clock API
