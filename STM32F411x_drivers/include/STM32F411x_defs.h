@@ -107,7 +107,12 @@
 #define ST_NVIC_IRQ_EXTI_3 		(9)
 #define ST_NVIC_IRQ_EXTI_4 		(10)
 #define ST_NVIC_IRQ_EXTI9_5 	(23)
+#define ST_NVIC_IRQ_SPI1		(35)
+#define ST_NVIC_IRQ_SPI2		(36)
 #define ST_NVIC_IRQ_EXTI15_10 	(40)
+#define ST_NVIC_IRQ_SPI3		(51)
+#define ST_NVIC_IRQ_SPI4		(84)
+#define ST_NVIC_IRQ_SPI5		(85)
 
 
 ///
@@ -184,7 +189,7 @@ typedef struct
 typedef struct
 {
 	volatile uint32_t CR1;
-	uint32_t RESERVED0;
+	volatile uint32_t CR2;
 	volatile uint32_t SR;
 	volatile uint32_t DR;
 	volatile uint32_t CRCPR;
@@ -195,6 +200,7 @@ typedef struct
 } ST_SPI_reg_t;
 
 _Static_assert(offsetof(ST_SPI_reg_t, CR1) == 0x00, "");
+_Static_assert(offsetof(ST_SPI_reg_t, CR2) == 0x04, "");
 _Static_assert(offsetof(ST_SPI_reg_t, SR) == 0x08, "");
 _Static_assert(offsetof(ST_SPI_reg_t, DR) == 0x0C, "");
 _Static_assert(offsetof(ST_SPI_reg_t, CRCPR) == 0x10, "");
