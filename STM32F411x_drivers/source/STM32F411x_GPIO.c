@@ -27,6 +27,8 @@ static uint32_t get_exti_bit_pattern(ST_GPIO_reg_t * pGpioReg)
 
 void ST_GPIO_init(ST_GPIO_t * pGpio)
 {
+	ST_GPIO_clock_control(pGpio->portAddr, 1);
+
 	SET_BIT(pGpio->portAddr->PUPD, 2 * pGpio->config.pin, pGpio->config.pull_up & 0x1);
 	SET_BIT(pGpio->portAddr->PUPD, 2 * pGpio->config.pin + 1, pGpio->config.pull_up & 0x2);
 
@@ -43,19 +45,21 @@ void ST_GPIO_init(ST_GPIO_t * pGpio)
 	}
 	else if (pGpio->config.mode == ST_GPIO_PIN_MODE_ALTERNATE)
 	{
+		SET_BIT(pGpio->portAddr->MODE, 2 * pGpio->config.pin, pGpio->config.mode & 0x1);
+		SET_BIT(pGpio->portAddr->MODE, 2 * pGpio->config.pin + 1, pGpio->config.mode & 0x2);
 		if (pGpio->config.pin > 7)
 		{
 			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8), pGpio->config.alternate_function & 0x1);
 			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8) + 1, pGpio->config.alternate_function & 0x2);
-			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8) + 2, pGpio->config.alternate_function & 0x8);
-			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8) + 3, pGpio->config.alternate_function & 0x10);
+			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8) + 2, pGpio->config.alternate_function & 0x4);
+			SET_BIT(pGpio->portAddr->AFRH, 4 * (pGpio->config.pin - 8) + 3, pGpio->config.alternate_function & 0x8);
 		}
 		else
 		{
 			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin, pGpio->config.alternate_function & 0x1);
 			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin + 1, pGpio->config.alternate_function & 0x2);
-			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin + 2, pGpio->config.alternate_function & 0x8);
-			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin + 3, pGpio->config.alternate_function & 0x10);
+			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin + 2, pGpio->config.alternate_function & 0x4);
+			SET_BIT(pGpio->portAddr->AFRL, 4 * pGpio->config.pin + 3, pGpio->config.alternate_function & 0x8);
 		}
 	}
 	else if (pGpio->config.mode > ST_GPIO_PIN_MODE_ANALOG)
