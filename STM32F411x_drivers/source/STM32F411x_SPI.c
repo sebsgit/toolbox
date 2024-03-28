@@ -7,7 +7,8 @@ void ST_SPI_init(ST_SPI_t * pSpi)
 	ST_SPI_clock_control(pSpi->baseAddress, 1);
 
 	pSpi->baseAddress->CR1 &= ~(1 << 6); // disable SPI before applying new config
-	pSpi->baseAddress->CR2 |= (1 << 4);		// SPI TI mode
+
+	SET_BIT(pSpi->baseAddress->CR2, 4, pSpi->config.ti_enable);
 
 	// bus mode
 	if (pSpi->config.bus_config == ST_SPI_MODE_FULL_DUPLEX)

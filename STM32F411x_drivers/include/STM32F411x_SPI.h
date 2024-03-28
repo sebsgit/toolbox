@@ -14,6 +14,7 @@ typedef struct
 	uint8_t clock_polarity;		// value on clock idle (ST_SPI_CLOCK_IDLE_*)
 	uint8_t clock_phase;		// when to capture data (ST_SPI_CLOCK_PHASE_EDGE_*)
 	uint8_t ssm;				// software or hardware "nss" pin management (ST_SPI_SW_SLAVE_*)
+	uint8_t ti_enable;			// TI or Motorola transfer mode (ST_SPI_TI_MODE_*)
 } ST_SPI_conf_t;
 
 typedef struct
@@ -50,6 +51,8 @@ typedef struct
 #define ST_SPI_CLOCK_IDLE_1			(1)
 #define ST_SPI_CLOCK_PHASE_EDGE_1	(0)
 #define ST_SPI_CLOCK_PHASE_EDGE_2	(1)
+#define ST_SPI_TI_MODE_ON			(1)
+#define ST_SPI_TI_MODE_OFF			(0)
 
 extern void ST_SPI_clock_control(ST_SPI_reg_t *pSpiReg, uint8_t enable);
 
