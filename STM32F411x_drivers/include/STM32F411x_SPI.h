@@ -19,8 +19,19 @@ typedef struct
 
 typedef struct
 {
+	const uint8_t *tx_buff;
+	uint32_t tx_buff_len;
+	uint8_t *rx_buff;
+	uint32_t rx_buff_len;
+	uint8_t tx_state;		// status of the transmission (ST_SPI_IRQ_*)
+	uint8_t rx_state;		// status of the transmission (ST_SPI_IRQ_*)
+} ST_SPI_irq_data_t;
+
+typedef struct
+{
 	ST_SPI_reg_t *baseAddress;
 	ST_SPI_conf_t config;
+	ST_SPI_irq_data_t irq;
 } ST_SPI_t;
 
 #define ST_SPI_SLAVE				(0)
@@ -53,6 +64,12 @@ typedef struct
 #define ST_SPI_CLOCK_PHASE_EDGE_2	(1)
 #define ST_SPI_TI_MODE_ON			(1)
 #define ST_SPI_TI_MODE_OFF			(0)
+#define ST_SPI_IRQ_IDLE				(0)
+#define ST_SPI_IRQ_BUSY_RX			(1)
+#define ST_SPI_IRQ_BUSY_TX			(2)
+
+#define ST_SPI_EVENT_RX_COMPL		(1)
+#define ST_SPI_EVENT_TX_COMPL		(2)
 
 extern void ST_SPI_clock_control(ST_SPI_reg_t *pSpiReg, uint8_t enable);
 
@@ -61,7 +78,18 @@ extern void ST_SPI_deinit(ST_SPI_reg_t * pSpiReg);
 
 /// blocking call
 extern void ST_SPI_send(ST_SPI_reg_t* pSpiReg, const uint8_t* data, const size_t data_len);
-
+// blocking call
 extern void ST_SPI_recv(ST_SPI_reg_t* pSpiReg, uint8_t* data, const size_t data_len);
+
+extern void ST_SPI_IRQ_control(ST_SPI_reg_t * pSpiReg, uint8_t priority, uint8_t enable);
+
+// non-blocking call
+extern uint8_t ST_SPI_send_irq(ST_SPI_t *pSpi, const uint8_t* data, const size_t data_len);
+// non-blocking call
+extern uint8_t ST_SPI_recv_irq(ST_SPI_t *pSpi, uint8_t* data, const size_t data_len);
+
+extern void ST_SPI_IRQ_handle(ST_SPI_t *pSpi);
+
+extern void ST_SPI_App_Event(ST_SPI_t *pSpi, uint8_t e_type) __attribute__((weak));
 
 #endif // STM32F411X_SPI_H_

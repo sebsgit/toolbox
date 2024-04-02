@@ -9,6 +9,10 @@ void ST_SPI_init(ST_SPI_t * pSpi)
 	pSpi->baseAddress->CR1 &= ~(1 << 6); // disable SPI before applying new config
 
 	SET_BIT(pSpi->baseAddress->CR2, 4, pSpi->config.ti_enable);
+	if ((pSpi->config.mode == ST_SPI_MASTER) && !pSpi->config.ti_enable)
+	{
+		SET_BIT(pSpi->baseAddress->CR2, 2, 1); // SSOE (slave-select output enable)
+	}
 
 	// bus mode
 	if (pSpi->config.bus_config == ST_SPI_MODE_FULL_DUPLEX)
@@ -142,7 +146,7 @@ void ST_SPI_clock_control(ST_SPI_reg_t *pSpiReg, uint8_t enable)
 
 void ST_SPI_send(ST_SPI_reg_t* pSpiReg, const uint8_t* data, const size_t data_len)
 {
-#define WAIT_FOR_TX while ((pSpiReg->SR & 0x2) != 0x2)
+#define WAIT_FOR_TX while (!(pSpiReg->SR & 0x2))
 
 	if ((data_len > 0) && (data != NULL))
 	{
@@ -177,4 +181,174 @@ void ST_SPI_send(ST_SPI_reg_t* pSpiReg, const uint8_t* data, const size_t data_l
 	}
 
 #undef WAIT_FOR_TX
+}
+
+void ST_SPI_recv(ST_SPI_reg_t* pSpiReg, uint8_t* data, const size_t data_len)
+{
+#define WAIT_FOR_RX while (!(pSpiReg->SR & 0x1))
+	if ((data_len > 0) && (data != NULL))
+	{
+		const uint8_t dff = pSpiReg->CR1 & (1 << 11);
+		if (dff == ST_SPI_DFF_8Bit)
+		{
+			for (size_t i = 0; i < data_len; ++i)
+			{
+				// wait for RX buffer to be available (not empty)
+				WAIT_FOR_RX;
+				data[i] = (uint8_t)pSpiReg->DR;
+			}
+		}
+		else
+		{
+			for (size_t i = 0; i < data_len; i += 2)
+			{
+				// wait for RX buffer to be available (not empty)
+				WAIT_FOR_RX;
+
+				if (i < data_len - 1)
+				{
+					*((uint16_t*)(data + i)) = (uint16_t)pSpiReg->DR;
+				}
+				else
+				{
+					data[i] = (uint8_t)pSpiReg->DR;
+				}
+			}
+		}
+	}
+#undef WAIT_FOR_RX
+}
+
+static int8_t ST_SPI_IRQ_get_numer(ST_SPI_reg_t * pSpiReg)
+{
+	switch ((uint32_t)pSpiReg)
+	{
+	case ST_SPI1_BASE_ADDRESS:
+		return ST_NVIC_IRQ_SPI1;
+	case ST_SPI2_BASE_ADDRESS:
+		return ST_NVIC_IRQ_SPI2;
+	case ST_SPI3_BASE_ADDRESS:
+		return ST_NVIC_IRQ_SPI3;
+	case ST_SPI4_BASE_ADDRESS:
+		return ST_NVIC_IRQ_SPI4;
+	case ST_SPI5_BASE_ADDRESS:
+		return ST_NVIC_IRQ_SPI5;
+	default:
+		break;
+	}
+	return -1;
+}
+
+void ST_SPI_IRQ_control(ST_SPI_reg_t * pSpiReg, uint8_t priority, uint8_t enable)
+{
+	const int8_t irq_no = ST_SPI_IRQ_get_numer(pSpiReg);
+	if (irq_no == -1)
+	{
+		return;
+	}
+
+	volatile uint32_t *prio_reg = ST_NVIC_GET_PRIO_REGISTER(irq_no);
+	const uint32_t prio_bit_pos = (irq_no % 4);
+	const uint32_t clr_mask = ~(0xFF << (prio_bit_pos * 8));
+	const uint32_t new_prio_value = ((uint32_t)(priority << 4) << (prio_bit_pos * 8));
+	uint32_t value = *prio_reg;
+	value &= clr_mask;
+	*prio_reg = (value | new_prio_value);
+
+	uint32_t *nvic_seten;
+	uint32_t *nvic_clren;
+	if (irq_no < 32)
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_0;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_0;
+	}
+	else
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_1;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_1;
+	}
+	if (enable)
+	{
+		*nvic_seten |= (1 << (irq_no % 32));
+	}
+	else
+	{
+		*nvic_clren |= (1 << (irq_no % 32));
+	}
+}
+
+uint8_t ST_SPI_send_irq(ST_SPI_t *pSpi, const uint8_t* data, const size_t data_len)
+{
+	if (pSpi->irq.tx_state == ST_SPI_IRQ_IDLE)
+	{
+		pSpi->irq.tx_state = ST_SPI_IRQ_BUSY_TX;
+		pSpi->irq.tx_buff = data;
+		pSpi->irq.tx_buff_len = (uint32_t)data_len;
+		pSpi->baseAddress->CR2 |= (1 << 7); // TXEIE bit
+		pSpi->baseAddress->CR2 |= (1 << 5); // ERRIE bit
+		return 1;
+	}
+	return 0;
+}
+
+uint8_t ST_SPI_recv_irq(ST_SPI_t *pSpi, uint8_t* data, const size_t data_len)
+{
+	if (pSpi->irq.rx_state == ST_SPI_IRQ_IDLE)
+	{
+		pSpi->irq.rx_state = ST_SPI_IRQ_BUSY_RX;
+		pSpi->irq.rx_buff = data;
+		pSpi->irq.rx_buff_len = (uint32_t)data_len;
+		pSpi->baseAddress->CR2 |= (1 << 6); // RXEIE bit
+		pSpi->baseAddress->CR2 |= (1 << 5); // ERRIE bit
+		return 1;
+	}
+	return 0;
+}
+
+//TODO handle 16 bit DFF
+void ST_SPI_IRQ_handle(ST_SPI_t *pSpi)
+{
+	if ((pSpi->baseAddress->SR & 0x1) && (pSpi->baseAddress->CR2 & (1 << 6)))
+	{
+		// Receive buffer not-empty
+		if ((pSpi->irq.rx_state == ST_SPI_IRQ_BUSY_RX) && (pSpi->irq.rx_buff_len > 0))
+		{
+			*pSpi->irq.rx_buff = pSpi->baseAddress->DR;
+			++pSpi->irq.rx_buff;
+			--pSpi->irq.rx_buff_len;
+			if (pSpi->irq.rx_buff_len == 0)
+			{
+				pSpi->irq.rx_buff = 0;
+				pSpi->baseAddress->CR2 &= ~(1 << 6);
+				pSpi->baseAddress->CR2 &= ~(1 << 5);
+				pSpi->irq.rx_state = ST_SPI_IRQ_IDLE;
+				if (ST_SPI_App_Event)
+				{
+					ST_SPI_App_Event(pSpi, ST_SPI_EVENT_RX_COMPL);
+				}
+			}
+		}
+	}
+
+	if ((pSpi->baseAddress->SR & 0x2) && (pSpi->baseAddress->CR2 & (1 << 7)))
+	{
+		// transmit buffer ready
+		if ((pSpi->irq.tx_state == ST_SPI_IRQ_BUSY_TX) && (pSpi->irq.tx_buff_len > 0))
+		{
+			pSpi->baseAddress->DR = *pSpi->irq.tx_buff;
+			++pSpi->irq.tx_buff;
+			--pSpi->irq.tx_buff_len;
+			if (pSpi->irq.tx_buff_len == 0)
+			{
+				pSpi->irq.tx_buff = 0;
+				pSpi->baseAddress->CR2 &= ~(1 << 7);
+				pSpi->baseAddress->CR2 &= ~(1 << 5);
+				pSpi->irq.tx_state = ST_SPI_IRQ_IDLE;
+				if (ST_SPI_App_Event)
+				{
+					ST_SPI_App_Event(pSpi, ST_SPI_EVENT_TX_COMPL);
+				}
+			}
+		}
+	}
 }
