@@ -144,6 +144,8 @@
 #define ST_SPI2_BASE_ADDRESS 0x40003800U
 #define ST_SPI3_BASE_ADDRESS 0x40003C00U
 #define ST_I2C1_BASE_ADDRESS 0x40005400U
+#define ST_I2C2_BASE_ADDRESS 0x40005800U
+#define ST_I2C3_BASE_ADDRESS 0x40005C00U
 
 ///
 /// APB2 bus peripherals
@@ -208,6 +210,31 @@ _Static_assert(offsetof(ST_SPI_reg_t, RXCRCR) == 0x14, "");
 _Static_assert(offsetof(ST_SPI_reg_t, TXCRCR) == 0x18, "");
 _Static_assert(offsetof(ST_SPI_reg_t, I2SCFGR) == 0x1C, "");
 _Static_assert(offsetof(ST_SPI_reg_t, I2SPR) == 0x20, "");
+
+typedef struct
+{
+	volatile uint32_t CR1;
+	volatile uint32_t CR2;
+	volatile uint32_t OAR1;
+	volatile uint32_t OAR2;
+	volatile uint32_t DR;
+	volatile uint32_t SR1;
+	volatile uint32_t SR2;
+	volatile uint32_t CCR;
+	volatile uint32_t TRISE;
+	volatile uint32_t FLTR;
+} ST_I2C_reg_t;
+
+_Static_assert(offsetof(ST_I2C_reg_t, CR1) == 0x00, "");
+_Static_assert(offsetof(ST_I2C_reg_t, CR2) == 0x04, "");
+_Static_assert(offsetof(ST_I2C_reg_t, OAR1) == 0x08, "");
+_Static_assert(offsetof(ST_I2C_reg_t, OAR2) == 0x0C, "");
+_Static_assert(offsetof(ST_I2C_reg_t, DR) == 0x10, "");
+_Static_assert(offsetof(ST_I2C_reg_t, SR1) == 0x14, "");
+_Static_assert(offsetof(ST_I2C_reg_t, SR2) == 0x18, "");
+_Static_assert(offsetof(ST_I2C_reg_t, CCR) == 0x1C, "");
+_Static_assert(offsetof(ST_I2C_reg_t, TRISE) == 0x20, "");
+_Static_assert(offsetof(ST_I2C_reg_t, FLTR) == 0x24, "");
 
 typedef struct
 {
@@ -282,6 +309,9 @@ typedef struct
 #define ST_SPI3		( (ST_SPI_reg_t*)(ST_SPI3_BASE_ADDRESS) )
 #define ST_SPI4		( (ST_SPI_reg_t*)(ST_SPI4_BASE_ADDRESS) )
 #define ST_SPI5		( (ST_SPI_reg_t*)(ST_SPI5_BASE_ADDRESS) )
+#define ST_I2C1		( (ST_I2C_reg_t*)(ST_I2C1_BASE_ADDRESS) )
+#define ST_I2C2		( (ST_I2C_reg_t*)(ST_I2C2_BASE_ADDRESS) )
+#define ST_I2C3		( (ST_I2C_reg_t*)(ST_I2C3_BASE_ADDRESS) )
 #define ST_RCC 		( (ST_RCC_reg_t*)(ST_RCC_BASE_ADDRESS) )
 #define ST_EXTI 	( (ST_EXTI_reg_t*)(ST_EXTI_BASE_ADDRESS) )
 #define ST_SYSCFG   ( (ST_SYSCFG_reg_t*)(ST_SYSCFG_BASE_ADDRESS) )
@@ -323,6 +353,10 @@ typedef struct
 
 #define ST_I2C1_CLCK_EN() ( ST_RCC->APB1EN |= (1 << 21) )
 #define ST_I2C1_CLCK_DI() ( ST_RCC->APB1EN &= ~(1 << 21) )
+#define ST_I2C2_CLCK_EN() ( ST_RCC->APB1EN |= (1 << 21) )
+#define ST_I2C2_CLCK_DI() ( ST_RCC->APB1EN &= ~(1 << 21) )
+#define ST_I2C3_CLCK_EN() ( ST_RCC->APB1EN |= (1 << 21) )
+#define ST_I2C3_CLCK_DI() ( ST_RCC->APB1EN &= ~(1 << 21) )
 
 // Sysconfig clock API
 #define ST_SYSCFG_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 14) )
