@@ -10,8 +10,8 @@
 
 #define ST_I2C_ADDRMODE_7_BIT	0
 
-#define ST_I2C_MODE_STD 		0
-#define ST_I2C_MODE_FAST   		1
+#define ST_I2C_MODE_STD 		(100 * 1000)
+#define ST_I2C_MODE_FAST   		(400 * 1000)
 
 /// Duty cycle for the I2C "fast" mode, T_low = 2 * T_high
 #define ST_I2C_FM_DUTY_CYCLE_2		0
@@ -24,7 +24,6 @@ typedef struct
 	uint8_t slave_address;	// 7 bits of slave address
 	uint8_t mode;			// ST_I2C_MODE_*
 	uint8_t fm_duty_cycle;	// ST_I2C_FM_DUTY_CYCLE_*
-	uint32_t clock_speed;	//
 } ST_I2C_conf_t;
 
 typedef struct
