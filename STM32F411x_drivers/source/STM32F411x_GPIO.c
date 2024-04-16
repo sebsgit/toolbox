@@ -2,6 +2,39 @@
 
 #define SET_BIT(where, which, value) do { if (value) { where |= (1 << (which)); } else { where &= ~(1 << (which)); } } while (0);
 
+void ST_NVIC_configure_interrupt(uint32_t irq_no, uint8_t priority, uint8_t enable)
+{
+	volatile uint32_t *prio_reg = ST_NVIC_GET_PRIO_REGISTER(irq_no);
+	const uint32_t prio_bit_pos = (irq_no % 4);
+	const uint32_t clr_mask = ~(0xFF << (prio_bit_pos * 8));
+	const uint32_t new_prio_value = ((uint32_t)(priority << 4) << (prio_bit_pos * 8));
+	uint32_t value = *prio_reg;
+	value &= clr_mask;
+	*prio_reg = (value | new_prio_value);
+
+	uint32_t *nvic_seten;
+	uint32_t *nvic_clren;
+	if (irq_no < 32)
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_0;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_0;
+	}
+	else //TODO handle all cases
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_1;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_1;
+	}
+
+	if (enable)
+	{
+		*nvic_seten |= (1 << (irq_no % 32));
+	}
+	else
+	{
+		*nvic_clren |= (1 << (irq_no % 32));
+	}
+}
+
 static uint32_t get_exti_bit_pattern(ST_GPIO_reg_t * pGpioReg)
 {
 	switch ((uint32_t)pGpioReg)
@@ -268,34 +301,7 @@ void ST_GPIO_IRQ_control(uint8_t pin, uint8_t priority, uint8_t enable)
 		return;
 	}
 
-	volatile uint32_t *prio_reg = ST_NVIC_GET_PRIO_REGISTER(irq_no);
-	const uint32_t prio_bit_pos = (irq_no % 4);
-	const uint32_t clr_mask = ~(0xFF << (prio_bit_pos * 8));
-	const uint32_t new_prio_value = ((uint32_t)(priority << 4) << (prio_bit_pos * 8));
-	uint32_t value = *prio_reg;
-	value &= clr_mask;
-	*prio_reg = (value | new_prio_value);
-
-	uint32_t *nvic_seten;
-	uint32_t *nvic_clren;
-	if (irq_no < 32)
-	{
-		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_0;
-		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_0;
-	}
-	else
-	{
-		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_1;
-		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_1;
-	}
-	if (enable)
-	{
-		*nvic_seten |= (1 << (irq_no % 32));
-	}
-	else
-	{
-		*nvic_clren |= (1 << (irq_no % 32));
-	}
+	ST_NVIC_configure_interrupt(irq_no, priority, enable);
 }
 
 void ST_GPIO_IRQ_handle(uint8_t pin)

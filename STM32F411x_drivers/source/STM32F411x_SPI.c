@@ -247,34 +247,7 @@ void ST_SPI_IRQ_control(ST_SPI_reg_t * pSpiReg, uint8_t priority, uint8_t enable
 		return;
 	}
 
-	volatile uint32_t *prio_reg = ST_NVIC_GET_PRIO_REGISTER(irq_no);
-	const uint32_t prio_bit_pos = (irq_no % 4);
-	const uint32_t clr_mask = ~(0xFF << (prio_bit_pos * 8));
-	const uint32_t new_prio_value = ((uint32_t)(priority << 4) << (prio_bit_pos * 8));
-	uint32_t value = *prio_reg;
-	value &= clr_mask;
-	*prio_reg = (value | new_prio_value);
-
-	uint32_t *nvic_seten;
-	uint32_t *nvic_clren;
-	if (irq_no < 32)
-	{
-		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_0;
-		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_0;
-	}
-	else
-	{
-		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_1;
-		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_1;
-	}
-	if (enable)
-	{
-		*nvic_seten |= (1 << (irq_no % 32));
-	}
-	else
-	{
-		*nvic_clren |= (1 << (irq_no % 32));
-	}
+	ST_NVIC_configure_interrupt(irq_no, priority, enable);
 }
 
 uint8_t ST_SPI_send_irq(ST_SPI_t *pSpi, const uint8_t* data, const size_t data_len)

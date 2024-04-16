@@ -81,12 +81,15 @@ void ST_I2C_deinit(ST_I2C_t *i2c)
 
 void ST_I2C_Master_send(ST_I2C_t *i2c, const uint8_t slave_addr, const uint8_t *tx_buffer, const size_t data_len)
 {
+	// clear ACK failure
+	i2c->baseAdress->SR1 &= ~(1 << 10);
+
 	// generate start condition
 	i2c->baseAdress->CR1 |= (1 << 8);
 
 	// wait for start condition confirmation
 	// TODO: add timeout
-	while ((i2c->baseAdress->SR1 & 0x1) != 0x1);
+	while (!(i2c->baseAdress->SR1 & 0x1));
 
 	// set RW bit to "W = 0" and send the slave address
 	uint8_t slave_addr_shifted = (slave_addr << 1);
@@ -94,7 +97,14 @@ void ST_I2C_Master_send(ST_I2C_t *i2c, const uint8_t slave_addr, const uint8_t *
 	i2c->baseAdress->DR = slave_addr_shifted;
 
 	// wait for address sent confirmation
-	while ((i2c->baseAdress->SR1 & 0x2) != 0x2);
+	while (!(i2c->baseAdress->SR1 & 0x2))
+	{
+		if (i2c->baseAdress->SR1 & (1 << 10)) // ACK failure
+		{
+			//TODO add return codes
+			return;
+		}
+	}
 
 	// clear ADDR flag by reading SR1 and SR2
 	uint32_t unused = i2c->baseAdress->SR1;
@@ -119,3 +129,63 @@ void ST_I2C_Master_send(ST_I2C_t *i2c, const uint8_t slave_addr, const uint8_t *
 	// generate stop condition
 	i2c->baseAdress->CR1 |= (1 << 9);
 }
+
+void ST_I2C_Master_receive(ST_I2C_t *i2c, const uint8_t slave_addr, uint8_t *rx_buffer, const size_t data_len)
+{
+	//TODO implement according to the transmission state diagram,
+	// Reference manual "STM32F411xC/E advanced Arm-based 32-bit MCUs", page 482
+}
+
+void ST_I2C_irq_control(ST_I2C_t *i2c, uint8_t priority, uint8_t enable)
+{
+
+}
+
+uint8_t ST_I2C_Master_send_IT(ST_I2C_t *i2c, const uint8_t slave_addr, const uint8_t *tx_buffer, const size_t data_len)
+{
+	const uint8_t busy = i2c->irq.irq_state;
+	if (busy == ST_I2C_IRQ_STATE_IDLE)
+	{
+		i2c->irq.dev_addr = slave_addr;
+		i2c->irq.irq_state = ST_I2C_IRQ_STATE_BUSY_TX;
+		i2c->irq.tx_buffer = tx_buffer;
+		i2c->irq.tx_buff_len = data_len;
+
+		// enable event, error and buffer interrupts
+		i2c->baseAdress->CR2 |= (1 << 10);
+		i2c->baseAdress->CR2 |= (1 << 9);
+		i2c->baseAdress->CR2 |= (1 << 8);
+
+		// generate start condition
+		i2c->baseAdress->CR1 |= (1 << 8);
+
+		return ST_I2C_IRQ_STATE_BUSY_TX;
+	}
+	return busy;
+}
+
+uint8_t ST_I2C_Master_receive_IT(ST_I2C_t *i2c, const uint8_t slave_addr, uint8_t *rx_buffer, const size_t data_len)
+{
+	const uint8_t busy = i2c->irq.irq_state;
+	if (busy == ST_I2C_IRQ_STATE_IDLE)
+	{
+		i2c->irq.dev_addr = slave_addr;
+		i2c->irq.irq_state = ST_I2C_IRQ_STATE_BUSY_RX;
+		i2c->irq.rx_buffer = rx_buffer;
+		i2c->irq.rx_buff_len = data_len;
+		i2c->irq.rx_size = data_len;
+
+		// enable event, error and buffer interrupts
+		i2c->baseAdress->CR2 |= (1 << 10);
+		i2c->baseAdress->CR2 |= (1 << 9);
+		i2c->baseAdress->CR2 |= (1 << 8);
+
+		// generate start condition
+		i2c->baseAdress->CR1 |= (1 << 8);
+
+		return ST_I2C_IRQ_STATE_BUSY_RX;
+	}
+	return busy;
+}
+
+

@@ -107,10 +107,16 @@
 #define ST_NVIC_IRQ_EXTI_3 		(9)
 #define ST_NVIC_IRQ_EXTI_4 		(10)
 #define ST_NVIC_IRQ_EXTI9_5 	(23)
+#define ST_NVIC_I2C1_EV			(31)
+#define ST_NVIC_I2C1_ER			(32)
+#define ST_NVIC_I2C2_EV			(33)
+#define ST_NVIC_I2C2_ER			(34)
 #define ST_NVIC_IRQ_SPI1		(35)
 #define ST_NVIC_IRQ_SPI2		(36)
 #define ST_NVIC_IRQ_EXTI15_10 	(40)
 #define ST_NVIC_IRQ_SPI3		(51)
+#define ST_NVIC_I2C3_EV			(72)
+#define ST_NVIC_I2C3_ER			(73)
 #define ST_NVIC_IRQ_SPI4		(84)
 #define ST_NVIC_IRQ_SPI5		(85)
 
@@ -361,5 +367,7 @@ typedef struct
 // Sysconfig clock API
 #define ST_SYSCFG_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 14) )
 #define ST_SYSCFG_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 14) )
+
+extern void ST_NVIC_configure_interrupt(uint32_t irq_no, uint8_t priority, uint8_t enable);
 
 #endif // STM32F411X_DEFS_H_
