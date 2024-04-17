@@ -143,6 +143,16 @@ void ST_I2C_Master_receive(ST_I2C_t *i2c, const uint8_t slave_addr, uint8_t *rx_
 	// Reference manual "STM32F411xC/E advanced Arm-based 32-bit MCUs", page 482
 }
 
+void ST_I2C_data_write(ST_I2C_t *i2c, const uint8_t data)
+{
+	i2c->baseAdress->DR = data;
+}
+
+uint8_t ST_I2C_data_read(ST_I2C_t *i2c)
+{
+	return (uint8_t)i2c->baseAdress->DR;
+}
+
 static uint32_t ST_I2C_get_ev_irq_no(ST_I2C_t *i2c)
 {
 	switch ((uint32_t)i2c->baseAdress)
@@ -187,6 +197,22 @@ void ST_I2C_irq_control(ST_I2C_t *i2c, uint8_t priority, uint8_t enable)
 	ST_NVIC_configure_interrupt(irq_err, priority, enable);
 }
 
+void ST_I2C_callback_control(ST_I2C_t *i2c, uint8_t enable)
+{
+	if (enable)
+	{
+		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITERREN);
+		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITEVEN);
+		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITBUFEN);
+	}
+	else
+	{
+		i2c->baseAdress->CR2 &= ~(1 << ST_I2C_CR2_ITERREN);
+		i2c->baseAdress->CR2 &= ~(1 << ST_I2C_CR2_ITEVEN);
+		i2c->baseAdress->CR2 &= ~(1 << ST_I2C_CR2_ITBUFEN);
+	}
+}
+
 uint8_t ST_I2C_Master_send_IT(ST_I2C_t *i2c, const uint8_t slave_addr, const uint8_t *tx_buffer, const size_t data_len)
 {
 	const uint8_t busy = i2c->irq.irq_state;
@@ -198,9 +224,7 @@ uint8_t ST_I2C_Master_send_IT(ST_I2C_t *i2c, const uint8_t slave_addr, const uin
 		i2c->irq.tx_buff_len = data_len;
 
 		// enable event, error and buffer interrupts
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITERREN);
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITEVEN);
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITBUFEN);
+		ST_I2C_callback_control(i2c, 1);
 
 		// generate start condition
 		i2c->baseAdress->CR1 |= (1 << 8);
@@ -222,9 +246,7 @@ uint8_t ST_I2C_Master_receive_IT(ST_I2C_t *i2c, const uint8_t slave_addr, uint8_
 		i2c->irq.rx_size = data_len;
 
 		// enable event, error and buffer interrupts
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITERREN);
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITEVEN);
-		i2c->baseAdress->CR2 |= (1 << ST_I2C_CR2_ITBUFEN);
+		ST_I2C_callback_control(i2c, 1);
 
 		// generate start condition
 		i2c->baseAdress->CR1 |= (1 << 8);
@@ -317,23 +339,44 @@ void ST_I2C_irq_ev_handler(ST_I2C_t *i2c)
 			const uint8_t tx_ev = i2c->baseAdress->SR1 & (1 << ST_I2C_SR1_TXE);
 			const uint8_t rx_ev = i2c->baseAdress->SR1 & (1 << ST_I2C_SR1_RXNE);
 
-			if (tx_ev && ST_I2C_is_master(i2c))
+			if (tx_ev)
 			{
-				// transmit buffer empty, transfer the next byte
-				if ((i2c->irq.tx_buff_len > 0) && (i2c->irq.irq_state == ST_I2C_IRQ_STATE_BUSY_TX))
+				if (ST_I2C_is_master(i2c))
 				{
-					i2c->baseAdress->DR = *i2c->irq.tx_buffer;
-					++i2c->irq.tx_buffer;
-					--i2c->irq.tx_buff_len;
+					// transmit buffer empty, transfer the next byte
+					if ((i2c->irq.tx_buff_len > 0) && (i2c->irq.irq_state == ST_I2C_IRQ_STATE_BUSY_TX))
+					{
+						i2c->baseAdress->DR = *i2c->irq.tx_buffer;
+						++i2c->irq.tx_buffer;
+						--i2c->irq.tx_buff_len;
+					}
+				}
+				else
+				{
+					// slave should transmit data, forward the request to the application
+					if (i2c->baseAdress->SR2 & (1 << ST_I2C_SR2_TRA))
+					{
+						ST_I2C_App_Event(i2c, ST_I2C_EVENT_SLAVE_TRANSMIT);
+					}
 				}
 			}
 
 			if (rx_ev)
 			{
-				// receive buffer not empty
-				if ((i2c->irq.rx_buff_len > 0) && (i2c->irq.irq_state == ST_I2C_IRQ_STATE_BUSY_RX))
+				if (ST_I2C_is_master(i2c))
 				{
-					//TODO master receiver
+					// receive buffer not empty
+					if ((i2c->irq.rx_buff_len > 0) && (i2c->irq.irq_state == ST_I2C_IRQ_STATE_BUSY_RX))
+					{
+						//TODO master receiver
+					}
+				}
+				else
+				{
+					if (!(i2c->baseAdress->SR2 & (1 << ST_I2C_SR2_TRA)))
+					{
+						ST_I2C_App_Event(i2c, ST_I2C_EVENT_SLAVE_RECEIVE);
+					}
 				}
 			}
 		}

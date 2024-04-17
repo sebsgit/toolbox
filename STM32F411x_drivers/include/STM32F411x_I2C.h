@@ -20,7 +20,8 @@
 #define ST_I2C_SR1_PEC			(12)	// PEC error
 #define ST_I2C_SR1_TMOUT		(14)	// timeout error
 
-#define ST_I2C_SR2_MSL			(0)
+#define ST_I2C_SR2_MSL			(0)		// master or slave
+#define ST_I2C_SR2_TRA			(2)		// transmitter or receiver
 
 #define ST_I2C_CR2_ITERREN		(8)
 #define ST_I2C_CR2_ITEVEN		(9)
@@ -52,6 +53,8 @@
 #define ST_I2C_EVENT_ERR_OVERRUN	(7)
 #define ST_I2C_EVENT_ERR_PEC		(8)
 #define ST_I2C_EVENT_ERR_TIMEOUT	(9)
+#define ST_I2C_EVENT_SLAVE_TRANSMIT	(10)
+#define ST_I2C_EVENT_SLAVE_RECEIVE	(11)
 
 typedef struct
 {
@@ -91,7 +94,11 @@ extern void ST_I2C_Master_send(ST_I2C_t *i2c, const uint8_t slave_addr, const ui
 // blocking API
 extern void ST_I2C_Master_receive(ST_I2C_t *i2c, const uint8_t slave_addr, uint8_t *rx_buffer, const size_t data_len);
 
+extern void ST_I2C_data_write(ST_I2C_t *i2c, const uint8_t data);
+extern uint8_t ST_I2C_data_read(ST_I2C_t *i2c);
+
 extern void ST_I2C_irq_control(ST_I2C_t *i2c, uint8_t priority, uint8_t enable);
+extern void ST_I2C_callback_control(ST_I2C_t *i2c, uint8_t enable);
 
 extern void ST_I2C_irq_ev_handler(ST_I2C_t *i2c);
 extern void ST_I2C_irq_err_handler(ST_I2C_t *i2c);
