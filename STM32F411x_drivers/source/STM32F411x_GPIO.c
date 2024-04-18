@@ -19,11 +19,22 @@ void ST_NVIC_configure_interrupt(uint32_t irq_no, uint8_t priority, uint8_t enab
 		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_0;
 		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_0;
 	}
-	else //TODO handle all cases
+	else if (irq_no < (32 * 2))
 	{
 		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_1;
 		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_1;
 	}
+	else if (irq_no < (32 * 3))
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_2;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_2;
+	}
+	else if (irq_no < (32 * 4))
+	{
+		nvic_seten = (uint32_t*)ST_NVIC_SET_ENABLE_3;
+		nvic_clren = (uint32_t*)ST_NVIC_CLR_ENABLE_3;
+	}
+	//TODO
 
 	if (enable)
 	{

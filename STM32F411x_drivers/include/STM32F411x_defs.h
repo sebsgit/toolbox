@@ -113,8 +113,11 @@
 #define ST_NVIC_I2C2_ER			(34)
 #define ST_NVIC_IRQ_SPI1		(35)
 #define ST_NVIC_IRQ_SPI2		(36)
+#define ST_NVIC_IRQ_USART1		(37)
+#define ST_NVIC_IRQ_USART2		(38)
 #define ST_NVIC_IRQ_EXTI15_10 	(40)
 #define ST_NVIC_IRQ_SPI3		(51)
+#define ST_NVIC_IRQ_USART6		(71)
 #define ST_NVIC_I2C3_EV			(72)
 #define ST_NVIC_I2C3_ER			(73)
 #define ST_NVIC_IRQ_SPI4		(84)
@@ -152,6 +155,7 @@
 #define ST_I2C1_BASE_ADDRESS 0x40005400U
 #define ST_I2C2_BASE_ADDRESS 0x40005800U
 #define ST_I2C3_BASE_ADDRESS 0x40005C00U
+#define ST_USART2_BASE_ADDRESS	0x40004400U
 
 ///
 /// APB2 bus peripherals
@@ -304,6 +308,25 @@ typedef struct
 	volatile uint32_t COMPCELL;
 } ST_SYSCFG_reg_t;
 
+typedef struct
+{
+	volatile uint32_t SR;
+	volatile uint32_t DR;
+	volatile uint32_t BRR;
+	volatile uint32_t CR1;
+	volatile uint32_t CR2;
+	volatile uint32_t CR3;
+	volatile uint32_t GTPR;
+} ST_UART_reg_t;
+
+_Static_assert (offsetof(ST_UART_reg_t, SR) == 0x0, "");
+_Static_assert (offsetof(ST_UART_reg_t, DR) == 0x04, "");
+_Static_assert (offsetof(ST_UART_reg_t, BRR) == 0x08, "");
+_Static_assert (offsetof(ST_UART_reg_t, CR1) == 0x0C, "");
+_Static_assert (offsetof(ST_UART_reg_t, CR2) == 0x10, "");
+_Static_assert (offsetof(ST_UART_reg_t, CR3) == 0x14, "");
+_Static_assert (offsetof(ST_UART_reg_t, GTPR) == 0x18, "");
+
 #define ST_GPIOA 	( (ST_GPIO_reg_t*)(ST_GPIO_A_BASE_ADDRESS) )
 #define ST_GPIOB 	( (ST_GPIO_reg_t*)(ST_GPIO_B_BASE_ADDRESS) )
 #define ST_GPIOC 	( (ST_GPIO_reg_t*)(ST_GPIO_C_BASE_ADDRESS) )
@@ -321,6 +344,9 @@ typedef struct
 #define ST_RCC 		( (ST_RCC_reg_t*)(ST_RCC_BASE_ADDRESS) )
 #define ST_EXTI 	( (ST_EXTI_reg_t*)(ST_EXTI_BASE_ADDRESS) )
 #define ST_SYSCFG   ( (ST_SYSCFG_reg_t*)(ST_SYSCFG_BASE_ADDRESS) )
+#define ST_USART1	( (ST_UART_reg_t*)(ST_USART1_BASE_ADDRESS) )
+#define ST_USART2	( (ST_UART_reg_t*)(ST_USART2_BASE_ADDRESS) )
+#define ST_USART6	( (ST_UART_reg_t*)(ST_USART6_BASE_ADDRESS) )
 
 //
 // GPIO clock API
@@ -367,6 +393,14 @@ typedef struct
 // Sysconfig clock API
 #define ST_SYSCFG_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 14) )
 #define ST_SYSCFG_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 14) )
+
+// USART clock API
+#define ST_USART1_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 4) )
+#define ST_USART1_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 4) )
+#define ST_USART2_CLOCK_EN() ( ST_RCC->APB1EN |= (1 << 17) )
+#define ST_USART2_CLOCK_DI() ( ST_RCC->APB1EN &= ~(1 << 17) )
+#define ST_USART6_CLOCK_EN() ( ST_RCC->APB2EN |= (1 << 5) )
+#define ST_USART6_CLOCK_DI() ( ST_RCC->APB2EN &= ~(1 << 5) )
 
 extern void ST_NVIC_configure_interrupt(uint32_t irq_no, uint8_t priority, uint8_t enable);
 
