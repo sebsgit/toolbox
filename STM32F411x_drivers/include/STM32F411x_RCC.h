@@ -13,7 +13,10 @@ typedef enum
 extern void ST_RCC_set_system_clock(ST_RCC_system_clock_t clock_source);
 extern uint8_t ST_RCC_system_clock_select_status();
 extern uint32_t ST_RCC_get_system_clock_frequency();
+extern uint32_t ST_RCC_get_ahb_prescaler();
 extern uint32_t ST_RCC_get_apb1_prescaler();
-extern uint32_t ST_RCC_get_ahb1_prescaler();
+extern uint32_t ST_RCC_get_apb2_prescaler();
+extern uint32_t ST_RCC_get_apb1_clock_frequency();
+extern uint32_t ST_RCC_get_apb2_clock_frequency();
 
 #endif // STM32F411X_RCC_H_

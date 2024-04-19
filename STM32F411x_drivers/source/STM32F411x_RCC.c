@@ -49,7 +49,7 @@ uint32_t ST_RCC_get_apb1_prescaler()
 	}
 }
 
-uint32_t ST_RCC_get_ahb1_prescaler()
+uint32_t ST_RCC_get_ahb_prescaler()
 {
 	// Bits 7:4 HPRE: AHB prescaler
 	const uint32_t value = (ST_RCC->CFG >> 4) & 0xF;
@@ -61,4 +61,34 @@ uint32_t ST_RCC_get_ahb1_prescaler()
 	{
 		return 1U << (1U + (value - 8U));
 	}
+}
+
+uint32_t ST_RCC_get_apb2_prescaler()
+{
+	// Bits 15:13 PPRE2: APB high-speed prescaler (APB2)
+	const uint32_t value = (ST_RCC->CFG >> 13) & 0x7;
+	if (value < 4U)
+	{
+		return 1U;
+	}
+	else
+	{
+		return 1U << (1U + (value - 4U));
+	}
+}
+
+uint32_t ST_RCC_get_apb1_clock_frequency()
+{
+	uint32_t clock_freq = ST_RCC_get_system_clock_frequency();
+	clock_freq /= ST_RCC_get_ahb_prescaler();
+	clock_freq /= ST_RCC_get_apb1_prescaler();
+	return clock_freq;
+}
+
+uint32_t ST_RCC_get_apb2_clock_frequency()
+{
+	uint32_t clock_freq = ST_RCC_get_system_clock_frequency();
+	clock_freq /= ST_RCC_get_ahb_prescaler();
+	clock_freq /= ST_RCC_get_apb2_prescaler();
+	return clock_freq;
 }

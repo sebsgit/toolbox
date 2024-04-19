@@ -19,7 +19,7 @@ void ST_I2C_init(ST_I2C_t *i2c)
 	{
 		// configure clock frequency, bits 0-5 in CR2
 		uint32_t sys_clock_freq = ST_RCC_get_system_clock_frequency();
-		sys_clock_freq /= ST_RCC_get_ahb1_prescaler();
+		sys_clock_freq /= ST_RCC_get_ahb_prescaler();
 		sys_clock_freq /= ST_RCC_get_apb1_prescaler();
 		i2c->baseAdress->CR2 &= ~(0x1F);
 		i2c->baseAdress->CR2 |= ((sys_clock_freq / (1000U * 1000U)) & 0x1F);

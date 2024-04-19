@@ -27,6 +27,10 @@
 #define ST_UART_HWFLOW_RTS	(1)
 #define ST_UART_HWFLOW_ALL	(1)
 
+#define ST_UART_OVERSAMPLE_8	(1)
+#define ST_UART_OVERSAMPLE_16	(0)
+
+#define ST_UART_CR1_OVERS	(15)
 #define ST_UART_CR1_EN		(13)
 #define ST_UART_CR1_WLEN	(12)
 #define ST_UART_CR1_PARCTL	(10)
@@ -45,6 +49,10 @@
 #define ST_UART_CR3_CTS		(9)
 #define ST_UART_CR3_RTS		(8)
 
+#define ST_UART_SR_TXE		(7)
+#define ST_UART_SR_TC		(6)
+#define ST_UART_SR_RXNE		(5)
+
 typedef struct
 {
 	uint8_t mode;			// ST_UART_MODE_*
@@ -53,6 +61,7 @@ typedef struct
 	uint8_t stopBits;		// ST_UART_STOPB_*
 	uint8_t parity;			// ST_UART_PARITY_*
 	uint8_t hwFlow;			// ST_UART_HWFLOW_*
+	uint8_t oversample;		// ST_UART_OVERSAMPLE_*
 } ST_UART_conf_t;
 
 typedef struct
@@ -65,5 +74,7 @@ extern void ST_UART_init(ST_UART_t *uart);
 extern void ST_UART_deinit(ST_UART_reg_t *uart);
 
 extern void ST_UART_irq_config(ST_UART_t *uart, uint8_t priority, uint8_t enable);
+
+extern void ST_UART_write(ST_UART_t *uart, const uint8_t *data, const uint32_t data_len);
 
 #endif // STM32F411X_UART_H_
