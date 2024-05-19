@@ -1,0 +1,42 @@
+diff --git a/arch/arm/boot/dts/ti/omap/am335x-boneblack-fakedev.dtsi b/arch/arm/boot/dts/ti/omap/am335x-boneblack-fakedev.dtsi
+new file mode 100644
+index 000000000000..2cbf756fe1fd
+--- /dev/null
++++ b/arch/arm/boot/dts/ti/omap/am335x-boneblack-fakedev.dtsi
+@@ -0,0 +1,24 @@
++/ {
++
++    fkdev1: fkdev-1 {
++        compatible = "fakedrv-platform-dev";
++        org,size = <128>;
++        org,serial = "FKDEV00_1";
++        org,access_mode = <0x11>;
++        status = "disabled";
++    };
++    fkdev2: fkdev-2 {
++        compatible = "fplt-drv-variant-a";
++        org,size = <64>;
++        org,serial = "FKDEV0222";
++        org,access_mode = <0x01>;
++        status = "okay";
++    };
++    fkdev3: fkdev-3 {
++        compatible = "fplt-drv-variant-b";
++        org,size = <32>;
++        org,serial = "FKDEV23_as";
++        org,access_mode = <0x10>;
++        status = "okay";
++    };
++};
+diff --git a/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts b/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
+index 16b567e3cb47..0f8ff2eb022e 100644
+--- a/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
++++ b/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
+@@ -8,6 +8,7 @@
+ #include "am335x-bone-common.dtsi"
+ #include "am335x-boneblack-common.dtsi"
+ #include "am335x-boneblack-hdmi.dtsi"
++#include "am335x-boneblack-fakedev.dtsi"
+ 
+ / {
+ 	model = "TI AM335x BeagleBone Black";

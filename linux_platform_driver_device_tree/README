@@ -1,0 +1,5 @@
+This small test project explores adding platform devices to the linux kernel using device tree
+file and device tree overlays.
+The device tree node properties are extracted in the device driver to allocate and configure the device nodes under /dev/.
+File uEnv.txt contains the u-boot commands to load the linux image, load the device tree blob
+and patch it using the device tree overlay blob binary.
