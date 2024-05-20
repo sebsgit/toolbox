@@ -1,0 +1,21 @@
+{
+    "files.associations": {
+        "device.h": "c",
+        "types.h": "c",
+        "cdev.h": "c",
+        "kdev_t.h": "c",
+        "kobject.h": "c",
+        "sysfs.h": "c",
+        "kernfs.h": "c",
+        "mutex.h": "c",
+        "lockdep.h": "c",
+        "smp.h": "c",
+        "percpu.h": "c",
+        "cpumask.h": "c",
+        "bitmap.h": "c",
+        "string.h": "c"
+    },
+    "C_Cpp.default.compilerArgs": [
+        "-nostdinc"
+    ]
+}
