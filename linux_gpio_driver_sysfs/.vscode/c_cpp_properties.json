@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/home/seb/repos/linux/include/**",
+                "/home/seb/repos/linux/arch/arm/include/generated/**",
+                "/home/seb/repos/linux/arch/arm/include/**"
+            ],
+            "forcedInclude": [
+                "/home/seb/repos/linux/include/generated/autoconf.h"
+            ],
+            "defines": [
+                "__KERNEL__",
+                "ARCH=arm"
+            ],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "linux-gcc-arm"
+        }
+    ],
+    "version": 4
+}

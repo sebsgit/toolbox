@@ -1,0 +1,105 @@
+diff --git a/arch/arm/boot/dts/ti/omap/am335x-boneblack-sb-gpio-sysfs.dtsi b/arch/arm/boot/dts/ti/omap/am335x-boneblack-sb-gpio-sysfs.dtsi
+new file mode 100644
+index 000000000000..d0ce8c135b2e
+--- /dev/null
++++ b/arch/arm/boot/dts/ti/omap/am335x-boneblack-sb-gpio-sysfs.dtsi
+@@ -0,0 +1,87 @@
++/ {
++
++
++leds
++{
++    led2 {
++        status = "disabled";
++    };
++
++    led3 {
++        status = "disabled";
++    };
++};
++
++sb_gpio_devs
++{
++    compatible = "sb-gpio-sysfs";
++    pinctrl-single,names = "default";   // system states to assign the pin configurations, "default" causes the pinctrl to configure the pins before "probe"
++    pinctrl-0 = <&sb_gpios>;            // this device claims the declared pins, this is automatically configured by the pinctrl subsystem
++
++    gpio_1 {
++        label = "gpio2.2";
++        func-gpios = <&gpio2 2 GPIO_ACTIVE_HIGH>;
++    };
++
++    gpio_2 {
++        label = "gpio2.3";
++        func-gpios = <&gpio2 3 GPIO_ACTIVE_LOW>;
++    };
++
++    gpio_3 {
++        label = "gpio2.5";
++        func-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
++    };
++
++    gpio_4 {
++        label = "usrled0:gpio1.21";
++        func-gpios = <&gpio1 21 GPIO_ACTIVE_HIGH>;
++    };
++
++    gpio_5 {
++        label = "usrled1:gpio1.22";
++        func-gpios = <&gpio1 22 GPIO_ACTIVE_HIGH>;
++    };
++};
++
++}; // root node
++
++
++///
++/// this section declares the pin muxing settings by customizing a "pin controller node"
++/// since the am33xx uses the generic pin control driver, we use the "pinctrl-single,pins" property for configuration
++///
++///
++/// at the linux boot the low-level pin controller driver for the am33xx device will be loaded
++/// that driver will examine all the child nodes of the "am33xx_pinmux" node
++/// since there is a child node with a "pinctrl-single,pins", the muxing settings are saved for later (pins are not configured immediately)
++///
++/// later when the corresponding driver is loaded for our device, the "pinctrl-" property triggers the "pinctrl" framework to configure the pins
++/// this happens before loading our driver, so when the "probe" function of our driver gets called, the pad configuration is already finished
++/// 
++/// the pinctrl subsystem can be examined through the "/sys/kernel/debug/pinctrl/" files
++
++///
++/// how to map the pin number to macro name:
++///     1. find the pin number in the "Table 12. Expansion Header" in the chapter 7 of BeagleBone Black System Reference Manual
++///     2. check the pin number on the processor (the PROC column)
++///     3. find the proc pin number in the "Table 4-2. Pin Attributes (ZCE and ZCZ Packages)" of datasheet for AM335x Sitara™ Processors
++///     7. check the "Pin Name" column and locate the corresponding macro in the linux/include/dt-bindings/pinctrl/am33xx.h header
++///
++///     Example: 
++///             gpio pin 2.2
++///             PROC name: R7
++///             PIN name on ZCZ package: GPMC_ADVn_ALE
++///             macro name: AM335X_PIN_GPMC_ADVN_ALE
++///
++
++&am33xx_pinmux
++{
++    sb_gpios: sb_gpios_conf {
++        pinctrl-single,pins = <
++            AM33XX_PADCONF(AM335X_PIN_GPMC_ADVN_ALE, PIN_OUTPUT, MUX_MODE7) // gpio2.2
++            AM33XX_PADCONF(AM335X_PIN_GPMC_OEN_REN, PIN_OUTPUT, MUX_MODE7)  // gpio2.3
++            AM33XX_PADCONF(AM335X_PIN_GPMC_BEN0_CLE, PIN_OUTPUT, MUX_MODE7) // gpio2.5
++        >;
++    };
++};
+diff --git a/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts b/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
+index 16b567e3cb47..2ed657b0bf9d 100644
+--- a/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
++++ b/arch/arm/boot/dts/ti/omap/am335x-boneblack.dts
+@@ -8,6 +8,7 @@
+ #include "am335x-bone-common.dtsi"
+ #include "am335x-boneblack-common.dtsi"
+ #include "am335x-boneblack-hdmi.dtsi"
++#include "am335x-boneblack-sb-gpio-sysfs.dtsi"
+ 
+ / {
+ 	model = "TI AM335x BeagleBone Black";
