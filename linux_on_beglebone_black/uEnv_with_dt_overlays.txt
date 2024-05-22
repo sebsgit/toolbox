@@ -1,0 +1,7 @@
+ld_uimage=load mmc 0:1 0x80008000 /uImage
+ld_fdt=load mmc 0:1 0x88000000 /am335x-boneblack.dtb
+ld_fdto=load mmc 0:2 0x88c00000 /lib/firmware/fakedrv_dt_overlay.dtbo
+apply_fdto=fdt addr 0x88000000;fdt resize 8192;fdt apply 0x88c00000
+stenv=setenv bootargs console=ttyO0,115200 root=/dev/mmcblk0p2 rw rootwait
+bt_cmd=bootm 0x80008000 - 0x88000000
+uenvcmd=echo "Booting linux using custom uEnv.txt...";run ld_uimage;run ld_fdt;run ld_fdto;run apply_fdto;run stenv;run bt_cmd

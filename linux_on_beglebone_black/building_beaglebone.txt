@@ -1,0 +1,39 @@
+To boot the beaglebone we will need: 
+ - MLO ("Main Loader") - the first stage bootloader
+ - U-Boot image - second stage loader, loads the linux kernel
+ - linux kernel and the device tree blob
+ - root filesystem (busybox used for simplicity)
+ 
+Here are the steps (dynamic modules and dt overlays are optional):
+
+1. Build u-boot to generate MLO/SPL and u-boot.img:
+   source repo: https://github.com/u-boot/u-boot.git
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- am335x_evm_defconfig
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- -j
+
+2. Configure and build linux kernel:
+   source repo: https://github.com/beagleboard/linux
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- omap2plus_defconfig
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- uImage dtbs LOADADDR=0x80008000 -j
+ 
+3. Build dynamic modules:
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- modules -j
+   
+4. Generating rootfs:
+   source repo: https://github.com/mirror/busybox.git
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- defconfig
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- CONFIG_PREFIX=/home/seb/bbb/RFS/ install -j
+
+5. installing the modules compiled in step 3:
+   (in linux kernel repo)
+   make ARCH=arm CROSS_COMPILE=arm-none-linux-gnueabihf- INSTALL_MOD_PATH=/home/seb/bbb/RFS/ modules_install 
+
+6. Use device tree file: arch/arm/boot/dts/ti/omap/am335x-boneblack.dtb
+	source device tree for this is "arch/arm/boot/dts/ti/omap/am335x-boneblack.dts"
+
+7. compile dtb, use "-@" flag to enable dt overlay support:
+	make ARCH=arm DTC_FLAGS="-@" CROSS_COMPILE=arm-none-linux-gnueabihf- ti/omap/am335x-boneblack.dtb
+
+8. compile dt overlays
+	use device tree compiler: dtc -@ -I dts -O dtb -o ...
+9. apply the dt overlays in u-boot (via uEnv.txt)

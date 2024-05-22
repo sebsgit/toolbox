@@ -1,0 +1,5 @@
+ld_uimage=load mmc 0:1 0x80008000 /uImage
+ld_fdt=load mmc 0:1 0x88000000 /am335x-boneblack.dtb
+stenv=setenv bootargs console=ttyO0,115200 root=/dev/mmcblk0p2 rw rootwait
+bt_cmd=bootm 0x80008000 - 0x88000000
+uenvcmd=echo "Booting now...";run ld_uimage;run ld_fdt;run stenv;run bt_cmd
