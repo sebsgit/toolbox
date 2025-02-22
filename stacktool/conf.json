@@ -1,0 +1,13 @@
+{
+    "debug_session": {
+        "program": "a.out",
+        "args": [542, 333],
+        "stacktrace_filename": "stack.out",
+        "breakpoints": ["Other::Other", "Derived::func"],
+        "tempdir": "/tmp/"
+    },
+    "ignore_files": ["/usr/include/"],
+    "keep_std_allocators": true,
+    "initial_vscode_delay_sec": 3
+}
+
